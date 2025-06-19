@@ -4,7 +4,12 @@ import { Crown, Heart, Sparkles } from "lucide-react";
 const DuaaHeader = () => {
   return (
     <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 text-white py-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-30"></div>
+      <div className="absolute inset-0 opacity-30">
+        <div className="w-full h-full" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          backgroundRepeat: 'repeat'
+        }}></div>
+      </div>
       <div className="container mx-auto px-4 text-center relative">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full flex items-center justify-center">
