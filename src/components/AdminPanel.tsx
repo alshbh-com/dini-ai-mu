@@ -4,12 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, X, Trash2, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const AdminPanel = () => {
+interface AdminPanelProps {
+  onClose: () => void;
+}
+
+const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,19 +20,22 @@ const AdminPanel = () => {
     totalQuestions: 0,
     totalFavorites: 0,
     dailyUsers: 0,
-    subscriptions: 0
+    todayQuestions: 0
   });
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     const authStatus = sessionStorage.getItem("adminAuth");
     if (authStatus === "true") {
       setIsAuthenticated(true);
-      loadStats();
+      loadAdminData();
     }
   }, []);
 
   const handleLogin = async () => {
+    setLoading(true);
     try {
       const { data } = await supabase
         .from('app_settings')
@@ -40,7 +46,7 @@ const AdminPanel = () => {
       if (data && password === data.setting_value) {
         setIsAuthenticated(true);
         sessionStorage.setItem("adminAuth", "true");
-        loadStats();
+        loadAdminData();
         toast({
           title: "تم تسجيل الدخول",
           description: "مرحباً بك في لوحة التحكم"
@@ -60,18 +66,22 @@ const AdminPanel = () => {
         variant: "destructive"
       });
     }
+    setLoading(false);
   };
 
-  const loadStats = async () => {
+  const loadAdminData = async () => {
     try {
+      // Load questions count
       const { count: questionsCount } = await supabase
         .from('questions')
         .select('*', { count: 'exact', head: true });
 
+      // Load favorites count
       const { count: favoritesCount } = await supabase
         .from('favorites')
         .select('*', { count: 'exact', head: true });
 
+      // Load today's stats
       const today = new Date().toISOString().split('T')[0];
       const { data: todayStats } = await supabase
         .from('stats')
@@ -79,14 +89,46 @@ const AdminPanel = () => {
         .eq('date', today)
         .single();
 
+      // Load recent questions
+      const { data: recentQuestions } = await supabase
+        .from('questions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
       setStats({
         totalQuestions: questionsCount || 0,
         totalFavorites: favoritesCount || 0,
         dailyUsers: todayStats?.daily_users || 0,
-        subscriptions: Math.floor(Math.random() * 20) + 5 // Simulated
+        todayQuestions: todayStats?.total_questions || 0
       });
+
+      setQuestions(recentQuestions || []);
     } catch (error) {
-      console.error("Error loading stats:", error);
+      console.error("Error loading admin data:", error);
+    }
+  };
+
+  const deleteQuestion = async (questionId: string) => {
+    try {
+      await supabase
+        .from('questions')
+        .delete()
+        .eq('id', questionId);
+
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف السؤال بنجاح"
+      });
+      
+      loadAdminData();
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ في حذف السؤال",
+        variant: "destructive"
+      });
     }
   };
 
@@ -94,13 +136,22 @@ const AdminPanel = () => {
     setIsAuthenticated(false);
     sessionStorage.removeItem("adminAuth");
     setPassword("");
+    onClose();
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <Card className="w-full max-w-md shadow-xl border-2 border-slate-200 bg-white/90 backdrop-blur-sm">
-          <CardHeader className="text-center">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <Card className="w-full max-w-md mx-4 shadow-2xl border-2 border-slate-200">
+          <CardHeader className="text-center relative">
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2"
+            >
+              <X className="w-4 h-4" />
+            </Button>
             <div className="flex justify-center mb-4">
               <Shield className="w-12 h-12 text-red-600" />
             </div>
@@ -134,19 +185,11 @@ const AdminPanel = () => {
             
             <Button 
               onClick={handleLogin}
+              disabled={loading}
               className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
-              دخول
+              {loading ? "جاري التحقق..." : "دخول"}
             </Button>
-
-            <div className="text-center pt-4">
-              <Link to="/">
-                <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                  العودة للرئيسية
-                </Button>
-              </Link>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -157,14 +200,17 @@ const AdminPanel = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/">
-              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
-                <ArrowRight className="w-4 h-4 ml-1" />
-                العودة للرئيسية
-              </Button>
-            </Link>
+            <Button 
+              onClick={onClose}
+              variant="outline" 
+              size="sm" 
+              className="border-slate-400 text-slate-600 hover:bg-slate-50"
+            >
+              <X className="w-4 h-4 ml-1" />
+              إغلاق
+            </Button>
             <div className="flex items-center gap-2">
               <Shield className="w-8 h-8 text-red-600" />
               <h1 className="text-3xl font-bold font-amiri text-slate-800">لوحة تحكم الإدارة</h1>
@@ -182,7 +228,7 @@ const AdminPanel = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="shadow-lg border-indigo-200 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-lg border-indigo-200 bg-white/80">
             <CardContent className="p-6 text-center">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 text-indigo-600" />
               <h3 className="text-2xl font-bold text-slate-800">{stats.totalQuestions}</h3>
@@ -190,23 +236,23 @@ const AdminPanel = () => {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-blue-200 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-lg border-blue-200 bg-white/80">
             <CardContent className="p-6 text-center">
               <Users className="w-12 h-12 mx-auto mb-4 text-blue-600" />
               <h3 className="text-2xl font-bold text-slate-800">{stats.dailyUsers}</h3>
-              <p className="text-slate-600">مستخدمين يومياً</p>
+              <p className="text-slate-600">مستخدمين اليوم</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-purple-200 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-lg border-green-200 bg-white/80">
             <CardContent className="p-6 text-center">
-              <TrendingUp className="w-12 h-12 mx-auto mb-4 text-purple-600" />
-              <h3 className="text-2xl font-bold text-slate-800">{stats.subscriptions}</h3>
-              <p className="text-slate-600">اشتراكات مدفوعة</p>
+              <TrendingUp className="w-12 h-12 mx-auto mb-4 text-green-600" />
+              <h3 className="text-2xl font-bold text-slate-800">{stats.todayQuestions}</h3>
+              <p className="text-slate-600">أسئلة اليوم</p>
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg border-rose-200 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-lg border-rose-200 bg-white/80">
             <CardContent className="p-6 text-center">
               <div className="w-12 h-12 mx-auto mb-4 bg-rose-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold">♡</span>
@@ -217,68 +263,55 @@ const AdminPanel = () => {
           </Card>
         </div>
 
-        {/* Admin Actions */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* User Management */}
-          <Card className="shadow-lg border-slate-200 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <Users className="w-6 h-6 text-indigo-600" />
-                إدارة المستخدمين
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span>المستخدمين النشطين</span>
-                <Badge className="bg-indigo-600 text-white">{stats.dailyUsers}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>الاشتراكات المدفوعة</span>
-                <Badge className="bg-purple-600 text-white">{stats.subscriptions}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>المستخدمين المجانيين</span>
-                <Badge variant="secondary">{stats.dailyUsers - stats.subscriptions}</Badge>
-              </div>
+        {/* Recent Questions */}
+        <Card className="shadow-lg border-slate-200 bg-white/80">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <MessageSquare className="w-6 h-6 text-indigo-600" />
+              الأسئلة الحديثة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {questions.map((q) => (
+                <div key={q.id} className="p-4 border border-slate-200 rounded-lg bg-slate-50">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-800 mb-2">{q.question}</p>
+                      <p className="text-sm text-slate-600 line-clamp-2">{q.answer}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {new Date(q.created_at).toLocaleDateString('ar-SA')}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          IP: {q.user_ip}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => deleteQuestion(q.id)}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-500 text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 text-center">
               <Button 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                onClick={() => toast({ title: "قريباً", description: "هذه الميزة ستكون متاحة قريباً" })}
+                onClick={loadAdminData}
+                variant="outline"
+                className="border-indigo-500 text-indigo-600 hover:bg-indigo-50"
               >
-                عرض تفاصيل المستخدمين
+                تحديث البيانات
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Content Management */}
-          <Card className="shadow-lg border-slate-200 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <MessageSquare className="w-6 h-6 text-blue-600" />
-                إدارة المحتوى
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span>إجمالي الأسئلة</span>
-                <Badge className="bg-blue-600 text-white">{stats.totalQuestions}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>أسئلة محفوظة</span>
-                <Badge className="bg-rose-600 text-white">{stats.totalFavorites}</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>معدل الاستخدام</span>
-                <Badge variant="secondary">عالي</Badge>
-              </div>
-              <Button 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => toast({ title: "قريباً", description: "هذه الميزة ستكون متاحة قريباً" })}
-              >
-                عرض سجل الأسئلة
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Footer */}
         <div className="mt-12 text-center">

@@ -9,7 +9,110 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      favorites: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string | null
+          user_ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id?: string | null
+          user_ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string | null
+          user_ip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          is_favorite: boolean | null
+          question: string
+          source: string | null
+          user_ip: string | null
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          question: string
+          source?: string | null
+          user_ip?: string | null
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          question?: string
+          source?: string | null
+          user_ip?: string | null
+        }
+        Relationships: []
+      }
+      stats: {
+        Row: {
+          created_at: string
+          daily_users: number | null
+          date: string
+          id: string
+          total_questions: number | null
+        }
+        Insert: {
+          created_at?: string
+          daily_users?: number | null
+          date?: string
+          id?: string
+          total_questions?: number | null
+        }
+        Update: {
+          created_at?: string
+          daily_users?: number | null
+          date?: string
+          id?: string
+          total_questions?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
