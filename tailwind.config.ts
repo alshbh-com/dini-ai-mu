@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,12 +62,27 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				islamic: {
+					gold: '#D4AF37',
+					'gold-light': '#F7E98E',
+					'gold-dark': '#B8941F',
+					green: '#2D5016',
+					'green-light': '#4A7C59',
+					'green-dark': '#1B3209',
+					cream: '#F8F6F0',
+					'cream-dark': '#E8E4DE'
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			backgroundImage: {
+				'islamic-gradient': 'linear-gradient(135deg, #2D5016 0%, #4A7C59 50%, #D4AF37 100%)',
+				'gold-gradient': 'linear-gradient(135deg, #D4AF37 0%, #F7E98E 100%)',
+				'green-gradient': 'linear-gradient(135deg, #1B3209 0%, #2D5016 100%)'
 			},
 			keyframes: {
 				'accordion-down': {
@@ -84,11 +100,21 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': { opacity: '0', transform: 'translateY(10px)' },
+					'100%': { opacity: '1', transform: 'translateY(0)' }
+				},
+				'pulse-glow': {
+					'0%, 100%': { boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)' },
+					'50%': { boxShadow: '0 0 30px rgba(212, 175, 55, 0.6)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.6s ease-out',
+				'pulse-glow': 'pulse-glow 2s ease-in-out infinite'
 			}
 		}
 	},
