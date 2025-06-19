@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark } from "lucide-react";
+import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import PrayerReminder from "@/components/PrayerReminder";
@@ -61,7 +61,7 @@ const Index = () => {
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyCyL3PUbUqM6LordRdgFtBX5jSeyFLEytM`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCyL3PUbUqM6LordRdgFtBX5jSeyFLEytM`,
         {
           method: "POST",
           headers: {
@@ -86,6 +86,7 @@ const Index = () => {
       );
 
       const data = await response.json();
+      console.log("API Response:", data);
       
       if (data.candidates && data.candidates[0]) {
         const responseText = data.candidates[0].content.parts[0].text;
@@ -117,6 +118,8 @@ const Index = () => {
           title: "تم الحصول على الإجابة",
           description: `باقي لديك ${newCount} أسئلة اليوم`
         });
+      } else {
+        throw new Error("No response from AI");
       }
     } catch (error) {
       toast({
@@ -180,7 +183,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-islamic-cream via-white to-islamic-cream">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       {/* Header with Duaa */}
       <DuaaHeader />
       
@@ -188,28 +191,34 @@ const Index = () => {
       <PrayerReminder />
 
       {/* Navigation */}
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-8 h-8 text-islamic-gold" />
-            <h1 className="text-2xl font-bold font-amiri text-islamic-green">مُعينك الديني</h1>
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <BookOpen className="w-10 h-10 text-amber-400" />
+              <Sparkles className="w-4 h-4 text-yellow-300 absolute -top-1 -right-1 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold font-amiri text-white">مُعينك الديني</h1>
+              <p className="text-amber-200 text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
+            </div>
           </div>
           
           <div className="flex gap-2">
             <Link to="/favorites">
-              <Button variant="outline" size="sm" className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white">
+              <Button variant="outline" size="sm" className="border-amber-400 text-amber-400 hover:bg-amber-400 hover:text-slate-900 transition-all duration-300">
                 <Heart className="w-4 h-4 ml-1" />
                 المفضلة
               </Button>
             </Link>
             <Link to="/subscription">
-              <Button variant="outline" size="sm" className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white">
+              <Button variant="outline" size="sm" className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white transition-all duration-300">
                 <Crown className="w-4 h-4 ml-1" />
                 الاشتراك
               </Button>
             </Link>
             <Link to="/settings">
-              <Button variant="outline" size="sm" className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white">
+              <Button variant="outline" size="sm" className="border-slate-400 text-slate-400 hover:bg-slate-400 hover:text-white transition-all duration-300">
                 <Settings className="w-4 h-4 ml-1" />
                 الإعدادات
               </Button>
@@ -218,38 +227,49 @@ const Index = () => {
         </div>
 
         {/* Daily Questions Counter */}
-        <div className="text-center mb-6">
-          <Badge variant="secondary" className="bg-islamic-gold text-white px-4 py-2 text-lg">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-900 px-6 py-3 rounded-full font-bold text-lg shadow-lg">
+            <Moon className="w-5 h-5" />
             الأسئلة المتبقية اليوم: {dailyQuestions}
-          </Badge>
+            <Sparkles className="w-5 h-5" />
+          </div>
         </div>
 
         {/* Main Question Card */}
-        <Card className="max-w-4xl mx-auto mb-6 shadow-xl border-2 border-islamic-gold/20">
-          <CardContent className="p-8">
-            <div className="text-center mb-6">
-              <h2 className="text-xl font-amiri text-islamic-green mb-2">
-                اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
-              </h2>
-              <p className="text-muted-foreground">
+        <Card className="max-w-4xl mx-auto mb-8 shadow-2xl border-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md">
+          <CardContent className="p-10">
+            <div className="text-center mb-8">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Star className="w-6 h-6 text-amber-400 animate-pulse" />
+                <h2 className="text-2xl font-amiri text-white">
+                  اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
+                </h2>
+                <Star className="w-6 h-6 text-amber-400 animate-pulse" />
+              </div>
+              <p className="text-slate-300 text-lg">
                 احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة
               </p>
             </div>
 
-            <div className="space-y-4">
-              <Textarea
-                placeholder="اكتب سؤالك الديني هنا..."
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                className="min-h-[120px] text-lg border-islamic-gold/30 focus:border-islamic-gold"
-                disabled={isLoading}
-              />
+            <div className="space-y-6">
+              <div className="relative">
+                <Textarea
+                  placeholder="اكتب سؤالك الديني هنا..."
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  className="min-h-[140px] text-lg border-2 border-amber-400/30 focus:border-amber-400 bg-white/10 backdrop-blur-sm text-white placeholder:text-slate-300 rounded-xl"
+                  disabled={isLoading}
+                />
+                <div className="absolute top-4 right-4">
+                  <BookOpen className="w-6 h-6 text-amber-400/50" />
+                </div>
+              </div>
 
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-4 justify-center">
                 <Button
                   onClick={askQuestion}
                   disabled={isLoading || dailyQuestions <= 0}
-                  className="bg-islamic-green hover:bg-islamic-green-dark text-white px-8 py-3 text-lg"
+                  className="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-900 px-10 py-4 text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105"
                 >
                   {isLoading ? (
                     <LoadingSpinner />
@@ -263,7 +283,7 @@ const Index = () => {
 
                 <Button
                   variant="outline"
-                  className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white px-6 py-3"
+                  className="border-2 border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white px-8 py-4 text-lg rounded-xl transition-all duration-300"
                   disabled={isRecording}
                 >
                   <Mic className="w-5 h-5 ml-2" />
@@ -276,29 +296,34 @@ const Index = () => {
 
         {/* Answer Card */}
         {answer && (
-          <Card className="max-w-4xl mx-auto mb-6 shadow-xl border-2 border-islamic-gold/20 animate-fade-in">
-            <CardContent className="p-8">
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-islamic-green mb-3 flex items-center">
-                  <Star className="w-5 h-5 ml-2 text-islamic-gold" />
+          <Card className="max-w-4xl mx-auto mb-8 shadow-2xl border-0 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-md animate-fade-in">
+            <CardContent className="p-10">
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+                  <div className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full flex items-center justify-center ml-3">
+                    <Star className="w-5 h-5 text-white" />
+                  </div>
                   الإجابة:
                 </h3>
-                <div className="bg-islamic-cream p-6 rounded-lg text-lg leading-relaxed">
+                <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl text-lg leading-relaxed text-white border border-white/20">
                   {answer}
                 </div>
               </div>
 
               {source && (
-                <div className="mb-4 p-4 bg-islamic-gold/10 rounded-lg">
-                  <p className="text-sm font-medium text-islamic-green">{source}</p>
+                <div className="mb-6 p-6 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 rounded-xl border border-amber-400/30">
+                  <p className="text-amber-200 font-medium flex items-center">
+                    <BookOpen className="w-5 h-5 ml-2" />
+                    {source}
+                  </p>
                 </div>
               )}
 
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-4 justify-center">
                 <Button
                   onClick={saveToFavorites}
                   variant="outline"
-                  className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white"
+                  className="border-2 border-rose-400 text-rose-400 hover:bg-rose-400 hover:text-white rounded-xl transition-all duration-300"
                 >
                   <Bookmark className="w-4 h-4 ml-2" />
                   حفظ في المفضلة
@@ -307,7 +332,7 @@ const Index = () => {
                 <Button
                   onClick={shareAnswer}
                   variant="outline"
-                  className="border-islamic-gold text-islamic-gold hover:bg-islamic-gold hover:text-white"
+                  className="border-2 border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-white rounded-xl transition-all duration-300"
                 >
                   <Send className="w-4 h-4 ml-2" />
                   مشاركة الإجابة
@@ -318,13 +343,20 @@ const Index = () => {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-8 text-muted-foreground">
-          <p className="font-amiri">
-            "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
-          </p>
-          <p className="text-sm mt-2">
-            الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
-          </p>
+        <div className="text-center mt-12 text-slate-300">
+          <div className="max-w-2xl mx-auto">
+            <p className="font-amiri text-xl mb-4 text-amber-200">
+              "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
+            </p>
+            <p className="text-base leading-relaxed">
+              الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-4 text-amber-400">
+              <Star className="w-4 h-4" />
+              <span className="text-sm">بارك الله فيك</span>
+              <Star className="w-4 h-4" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
