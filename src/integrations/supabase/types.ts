@@ -113,6 +113,39 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          is_active: boolean
+          start_date: string
+          subscription_type: string
+          updated_at: string
+          user_ip: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          subscription_type?: string
+          updated_at?: string
+          user_ip: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          start_date?: string
+          subscription_type?: string
+          updated_at?: string
+          user_ip?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

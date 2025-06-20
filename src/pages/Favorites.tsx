@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Heart, Share, Trash2, BookOpen } from "lucide-react";
+import { ArrowRight, Heart, Share, Trash2, BookOpen, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ interface Favorite {
 const Favorites = () => {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,6 +72,7 @@ const Favorites = () => {
   };
 
   const deleteFavorite = async (favoriteId: string) => {
+    setDeleting(favoriteId);
     try {
       const { error } = await supabase
         .from('favorites')
@@ -91,6 +93,8 @@ const Favorites = () => {
         description: "حدث خطأ في حذف السؤال",
         variant: "destructive"
       });
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -123,7 +127,7 @@ const Favorites = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-600" />
           <p className="text-slate-600">جاري تحميل المفضلة...</p>
         </div>
       </div>
@@ -131,10 +135,10 @@ const Favorites = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 py-6">
+      <div className="container mx-auto max-w-4xl">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8 flex-wrap">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
           <Link to="/">
             <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
               <ArrowRight className="w-4 h-4 ml-1" />
@@ -142,9 +146,14 @@ const Favorites = () => {
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            <Heart className="w-8 h-8 text-rose-500" />
-            <h1 className="text-3xl font-bold font-amiri text-slate-800">المفضلة</h1>
+            <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-rose-500" />
+            <h1 className="text-2xl sm:text-3xl font-bold font-amiri text-slate-800">المفضلة</h1>
           </div>
+          {favorites.length > 0 && (
+            <Badge className="bg-rose-500 text-white mr-auto">
+              {favorites.length} عنصر
+            </Badge>
+          )}
         </div>
 
         {/* Favorites List */}
@@ -169,10 +178,10 @@ const Favorites = () => {
               <Card key={favorite.id} className="shadow-lg border-slate-200 hover:border-indigo-300 transition-all bg-white/80 backdrop-blur-sm">
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start gap-4">
-                    <CardTitle className="text-lg font-amiri text-slate-800 leading-relaxed">
+                    <CardTitle className="text-lg font-amiri text-slate-800 leading-relaxed flex-1">
                       {favorite.questions.question}
                     </CardTitle>
-                    <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">
+                    <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600 flex-shrink-0">
                       {new Date(favorite.created_at).toLocaleDateString('ar-SA')}
                     </Badge>
                   </div>
@@ -205,8 +214,13 @@ const Favorites = () => {
                       variant="outline"
                       size="sm"
                       className="border-red-400 text-red-600 hover:bg-red-50"
+                      disabled={deleting === favorite.id}
                     >
-                      <Trash2 className="w-4 h-4 ml-1" />
+                      {deleting === favorite.id ? (
+                        <Loader2 className="w-4 h-4 ml-1 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 ml-1" />
+                      )}
                       حذف
                     </Button>
                   </div>
