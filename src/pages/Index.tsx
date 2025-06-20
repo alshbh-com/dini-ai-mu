@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X } from "lucide-react";
+import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X, Volume2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import PrayerReminder from "@/components/PrayerReminder";
@@ -21,13 +21,42 @@ const Index = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
   const { toast } = useToast();
 
-  // Load daily questions limit from database
+  // Load daily questions limit and subscription status
   useEffect(() => {
     loadDailyLimit();
-    // Don't load previous questions - keep them private per session
+    checkSubscriptionStatus();
   }, []);
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      const userIP = await getUserIP();
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_ip', userIP)
+        .eq('is_active', true)
+        .gte('end_date', new Date().toISOString())
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error checking subscription:", error);
+      } else {
+        setSubscription(data);
+        // إذا كان المستخدم مشترك، ألغي حدود الأسئلة اليومية
+        if (data) {
+          setDailyQuestions(999); // أسئلة غير محدودة
+        }
+      }
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+    } finally {
+      setIsSubscriptionLoading(false);
+    }
+  };
 
   const loadDailyLimit = async () => {
     try {
@@ -80,7 +109,8 @@ const Index = () => {
       return;
     }
 
-    if (dailyQuestions <= 0) {
+    // فحص حدود الأسئلة للمستخدمين غير المشتركين
+    if (!subscription && dailyQuestions <= 0) {
       toast({
         title: "انتهت الأسئلة المجانية",
         description: "اشترك للحصول على أسئلة غير محدودة",
@@ -94,6 +124,27 @@ const Index = () => {
     setSource("");
 
     try {
+      // تحسين النص للمشتركين - إجابات أكثر تفصيلاً
+      const promptText = subscription 
+        ? `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. قدم إجابة مفصلة وشاملة مع ذكر المصادر والأدلة.
+
+        قواعد مهمة:
+        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+        - اذكر المصدر مع رقم الآية أو الحديث إن أمكن
+        - قدم الإجابة بتفصيل مناسب مع الشرح
+        
+        السؤال: ${question}`
+        : `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
+        
+        قواعد مهمة:
+        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+        - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
+        - كن مختصراً ومفيداً
+        
+        السؤال: ${question}`;
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCyL3PUbUqM6LordRdgFtBX5jSeyFLEytM`,
         {
@@ -104,15 +155,7 @@ const Index = () => {
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
-                
-                قواعد مهمة:
-                - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
-                - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
-                - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
-                - كن مختصراً ومفيداً
-                
-                السؤال: ${question}`
+                text: promptText
               }]
             }]
           })
@@ -127,7 +170,9 @@ const Index = () => {
         
         let sourceText = "";
         if (responseText.includes("القرآن") || responseText.includes("الحديث") || responseText.includes("البخاري") || responseText.includes("مسلم")) {
-          sourceText = "المصدر: من القرآن الكريم والسنة النبوية الصحيحة";
+          sourceText = subscription 
+            ? "المصدر: من القرآن الكريم والسنة النبوية الصحيحة - إجابة مفصلة للمشتركين"
+            : "المصدر: من القرآن الكريم والسنة النبوية الصحيحة";
           setSource(sourceText);
         }
 
@@ -142,18 +187,24 @@ const Index = () => {
             user_ip: userIP
           });
 
-        // Update daily questions count
-        const newCount = dailyQuestions - 1;
-        setDailyQuestions(newCount);
-        const today = new Date().toDateString();
-        localStorage.setItem("dailyQuestions", JSON.stringify({ date: today, count: newCount }));
+        // تحديث عدد الأسئلة للمستخدمين غير المشتركين فقط
+        if (!subscription) {
+          const newCount = dailyQuestions - 1;
+          setDailyQuestions(newCount);
+          const today = new Date().toDateString();
+          localStorage.setItem("dailyQuestions", JSON.stringify({ date: today, count: newCount }));
+        }
 
         // Update stats
         await updateStats();
 
+        const remainingMessage = subscription 
+          ? "أسئلة غير محدودة للمشتركين"
+          : `باقي لديك ${dailyQuestions - 1} أسئلة اليوم`;
+
         toast({
           title: "تم الحصول على الإجابة",
-          description: `باقي لديك ${newCount} أسئلة اليوم`
+          description: remainingMessage
         });
 
         // Clear question after getting answer to keep it private
@@ -208,6 +259,24 @@ const Index = () => {
     if (!answer) return;
     
     try {
+      // فحص حدود المفضلة للمستخدمين غير المشتركين
+      if (!subscription) {
+        const userIP = await getUserIP();
+        const { count } = await supabase
+          .from('favorites')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_ip', userIP);
+
+        if (count && count >= 10) {
+          toast({
+            title: "تم الوصول للحد الأقصى",
+            description: "المستخدمون المجانيون يمكنهم حفظ 10 عناصر فقط. اشترك للحصول على حفظ غير محدود",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       const userIP = await getUserIP();
       const { data: questionData } = await supabase
         .from('questions')
@@ -228,7 +297,9 @@ const Index = () => {
 
         toast({
           title: "تم الحفظ",
-          description: "تم إضافة السؤال والإجابة للمفضلة"
+          description: subscription 
+            ? "تم إضافة السؤال والإجابة للمفضلة (حفظ غير محدود للمشتركين)"
+            : "تم إضافة السؤال والإجابة للمفضلة"
         });
       }
     } catch (error) {
@@ -268,8 +339,49 @@ const Index = () => {
     }
   };
 
+  // دالة تشغيل الصوت للمشتركين
+  const playAnswerAudio = () => {
+    if (!subscription) {
+      toast({
+        title: "ميزة المشتركين",
+        description: "الدعم الصوتي متاح للمشتركين فقط",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(answer);
+      utterance.lang = 'ar-SA';
+      utterance.rate = 0.8;
+      speechSynthesis.speak(utterance);
+      
+      toast({
+        title: "تم تشغيل الصوت",
+        description: "ميزة الدعم الصوتي للمشتركين"
+      });
+    } else {
+      toast({
+        title: "غير مدعوم",
+        description: "المتصفح لا يدعم تقنية تحويل النص لصوت",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (showAdminPanel) {
     return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  }
+
+  if (isSubscriptionLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="text-slate-600 mt-4">جاري التحقق من حالة الاشتراك...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -277,8 +389,8 @@ const Index = () => {
       {/* Header with Duaa */}
       <DuaaHeader />
       
-      {/* Prayer Reminder */}
-      <PrayerReminder />
+      {/* Prayer Reminder for Premium Users */}
+      {subscription && <PrayerReminder />}
 
       {/* Navigation */}
       <div className="container mx-auto px-3 py-4">
@@ -292,6 +404,12 @@ const Index = () => {
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">مُعينك الديني</h1>
               <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
+              {subscription && (
+                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs mt-1">
+                  <Crown className="w-3 h-3 ml-1" />
+                  مشترك مميز
+                </Badge>
+              )}
             </div>
           </div>
           
@@ -377,9 +495,13 @@ const Index = () => {
 
         {/* Daily Questions Counter */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg">
-            <Moon className="w-4 h-4 md:w-5 md:h-5" />
-            الأسئلة المتبقية اليوم: {dailyQuestions}
+          <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
+            subscription 
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+              : 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
+          }`}>
+            {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
+            {subscription ? "أسئلة غير محدودة - مشترك مميز" : `الأسئلة المتبقية اليوم: ${dailyQuestions}`}
             <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
           </div>
         </div>
@@ -396,7 +518,10 @@ const Index = () => {
                 <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
               </div>
               <p className="text-slate-600 text-sm md:text-base">
-                احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة
+                {subscription 
+                  ? "احصل على إجابات مفصلة وشاملة مع المصادر - للمشتركين المميزين"
+                  : "احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة"
+                }
               </p>
             </div>
 
@@ -417,7 +542,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={askQuestion}
-                  disabled={isLoading || dailyQuestions <= 0}
+                  disabled={isLoading || (!subscription && dailyQuestions <= 0)}
                   className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
                 >
                   {isLoading ? (
@@ -453,6 +578,12 @@ const Index = () => {
                     <Star className="w-3 h-3 md:w-5 md:h-5 text-white" />
                   </div>
                   الإجابة:
+                  {subscription && (
+                    <Badge className="bg-purple-600 text-white text-xs mr-2">
+                      <Crown className="w-3 h-3 ml-1" />
+                      مفصلة للمشتركين
+                    </Badge>
+                  )}
                 </h3>
                 <div className="bg-white/60 backdrop-blur-sm p-4 md:p-6 rounded-xl text-sm md:text-base leading-relaxed text-slate-800 border border-green-200">
                   {answer}
@@ -486,6 +617,17 @@ const Index = () => {
                   <Send className="w-4 h-4 ml-2" />
                   مشاركة الإجابة
                 </Button>
+
+                {subscription && (
+                  <Button
+                    onClick={playAnswerAudio}
+                    variant="outline"
+                    className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                  >
+                    <Volume2 className="w-4 h-4 ml-2" />
+                    تشغيل صوتي
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
