@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield } from "lucide-react";
+import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import PrayerReminder from "@/components/PrayerReminder";
@@ -21,12 +20,13 @@ const Index = () => {
   const [dailyQuestions, setDailyQuestions] = useState(5);
   const [isRecording, setIsRecording] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { toast } = useToast();
 
   // Load daily questions limit from database
   useEffect(() => {
     loadDailyLimit();
-    loadUserQuestions();
+    // Don't load previous questions - keep them private per session
   }, []);
 
   const loadDailyLimit = async () => {
@@ -57,26 +57,6 @@ const Index = () => {
       }
     } catch (error) {
       console.error("Error loading daily limit:", error);
-    }
-  };
-
-  const loadUserQuestions = async () => {
-    try {
-      const userIP = await getUserIP();
-      const { data } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('user_ip', userIP)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      if (data && data.length > 0) {
-        setQuestion(data[0].question);
-        setAnswer(data[0].answer);
-        setSource(data[0].source || "");
-      }
-    } catch (error) {
-      console.error("Error loading user questions:", error);
     }
   };
 
@@ -175,6 +155,9 @@ const Index = () => {
           title: "تم الحصول على الإجابة",
           description: `باقي لديك ${newCount} أسئلة اليوم`
         });
+
+        // Clear question after getting answer to keep it private
+        setQuestion("");
       } else {
         throw new Error("No response from AI");
       }
@@ -229,7 +212,7 @@ const Index = () => {
       const { data: questionData } = await supabase
         .from('questions')
         .select('id')
-        .eq('question', question)
+        .eq('question', question || "السؤال الحالي")
         .eq('user_ip', userIP)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -261,7 +244,7 @@ const Index = () => {
   const shareAnswer = async () => {
     if (!answer) return;
     
-    const shareText = `السؤال: ${question}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني`;
+    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني`;
     
     if (navigator.share) {
       try {
@@ -298,43 +281,55 @@ const Index = () => {
       <PrayerReminder />
 
       {/* Navigation */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3">
+      <div className="container mx-auto px-3 py-4">
+        {/* Mobile Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
             <div className="relative">
-              <BookOpen className="w-10 h-10 text-indigo-600" />
-              <Sparkles className="w-4 h-4 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
+              <BookOpen className="w-8 h-8 text-indigo-600" />
+              <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold font-amiri text-slate-800">مُعينك الديني</h1>
-              <p className="text-indigo-600 text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
+              <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">مُعينك الديني</h1>
+              <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
             </div>
           </div>
           
-          <div className="flex gap-2">
+          {/* Mobile Menu Button */}
+          <Button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            variant="outline"
+            size="sm"
+            className="md:hidden border-slate-400 text-slate-600"
+          >
+            {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </Button>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex gap-2">
             <Button
               onClick={() => setShowAdminPanel(true)}
               variant="outline"
               size="sm"
-              className="border-red-400 text-red-600 hover:bg-red-50 transition-all duration-300"
+              className="border-red-400 text-red-600 hover:bg-red-50"
             >
               <Shield className="w-4 h-4 ml-1" />
               الإدارة
             </Button>
             <Link to="/favorites">
-              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50 transition-all duration-300">
+              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
                 <Heart className="w-4 h-4 ml-1" />
                 المفضلة
               </Button>
             </Link>
             <Link to="/subscription">
-              <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50 transition-all duration-300">
+              <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50">
                 <Crown className="w-4 h-4 ml-1" />
                 الاشتراك
               </Button>
             </Link>
             <Link to="/settings">
-              <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50 transition-all duration-300">
+              <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50">
                 <Settings className="w-4 h-4 ml-1" />
                 الإعدادات
               </Button>
@@ -342,56 +337,94 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Mobile Navigation Menu */}
+        {showMobileMenu && (
+          <div className="md:hidden mb-6 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-lg">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => {
+                  setShowAdminPanel(true);
+                  setShowMobileMenu(false);
+                }}
+                variant="outline"
+                size="sm"
+                className="border-red-400 text-red-600 hover:bg-red-50 w-full"
+              >
+                <Shield className="w-4 h-4 ml-1" />
+                الإدارة
+              </Button>
+              <Link to="/favorites">
+                <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50 w-full">
+                  <Heart className="w-4 h-4 ml-1" />
+                  المفضلة
+                </Button>
+              </Link>
+              <Link to="/subscription">
+                <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50 w-full">
+                  <Crown className="w-4 h-4 ml-1" />
+                  الاشتراك
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50 w-full">
+                  <Settings className="w-4 h-4 ml-1" />
+                  الإعدادات
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Daily Questions Counter */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-lg">
-            <Moon className="w-5 h-5" />
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg">
+            <Moon className="w-4 h-4 md:w-5 md:h-5" />
             الأسئلة المتبقية اليوم: {dailyQuestions}
-            <Sparkles className="w-5 h-5" />
+            <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
           </div>
         </div>
 
         {/* Main Question Card */}
-        <Card className="max-w-4xl mx-auto mb-8 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-10">
-            <div className="text-center mb-8">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <Star className="w-6 h-6 text-indigo-500 animate-pulse" />
-                <h2 className="text-2xl font-amiri text-slate-800">
+        <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
+          <CardContent className="p-4 md:p-8">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
+                <h2 className="text-lg md:text-xl font-amiri text-slate-800">
                   اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
                 </h2>
-                <Star className="w-6 h-6 text-indigo-500 animate-pulse" />
+                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
               </div>
-              <p className="text-slate-600 text-lg">
+              <p className="text-slate-600 text-sm md:text-base">
                 احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="relative">
                 <Textarea
                   placeholder="اكتب سؤالك الديني هنا..."
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  className="min-h-[140px] text-lg border-2 border-indigo-200 focus:border-indigo-400 bg-white/50 backdrop-blur-sm text-slate-800 placeholder:text-slate-500 rounded-xl"
+                  className="min-h-[120px] md:min-h-[140px] text-base md:text-lg border-2 border-indigo-200 focus:border-indigo-400 bg-white/50 backdrop-blur-sm text-slate-800 placeholder:text-slate-500 rounded-xl"
                   disabled={isLoading}
                 />
-                <div className="absolute top-4 right-4">
-                  <BookOpen className="w-6 h-6 text-indigo-400" />
+                <div className="absolute top-3 right-3">
+                  <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
                 </div>
               </div>
 
-              <div className="flex gap-4 justify-center flex-wrap">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={askQuestion}
                   disabled={isLoading || dailyQuestions <= 0}
-                  className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-10 py-4 text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105"
+                  className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
                 >
                   {isLoading ? (
                     <LoadingSpinner />
                   ) : (
                     <>
-                      <Send className="w-5 h-5 ml-2" />
+                      <Send className="w-4 h-4 md:w-5 md:h-5 ml-2" />
                       اسأل الآن
                     </>
                   )}
@@ -399,10 +432,10 @@ const Index = () => {
 
                 <Button
                   variant="outline"
-                  className="border-2 border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-4 text-lg rounded-xl transition-all duration-300"
+                  className="border-2 border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-3 md:px-6 md:py-4 text-base md:text-lg rounded-xl transition-all duration-300 w-full sm:w-auto"
                   disabled={isRecording}
                 >
-                  <Mic className="w-5 h-5 ml-2" />
+                  <Mic className="w-4 h-4 md:w-5 md:h-5 ml-2" />
                   تسجيل صوتي
                 </Button>
               </div>
@@ -412,34 +445,34 @@ const Index = () => {
 
         {/* Answer Card */}
         {answer && (
-          <Card className="max-w-4xl mx-auto mb-8 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
-            <CardContent className="p-10">
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-slate-800 mb-4 flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center ml-3">
-                    <Star className="w-5 h-5 text-white" />
+          <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
+            <CardContent className="p-4 md:p-8">
+              <div className="mb-4">
+                <h3 className="text-lg md:text-xl font-semibold text-slate-800 mb-3 flex items-center">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center ml-2">
+                    <Star className="w-3 h-3 md:w-5 md:h-5 text-white" />
                   </div>
                   الإجابة:
                 </h3>
-                <div className="bg-white/60 backdrop-blur-sm p-8 rounded-xl text-lg leading-relaxed text-slate-800 border border-green-200">
+                <div className="bg-white/60 backdrop-blur-sm p-4 md:p-6 rounded-xl text-sm md:text-base leading-relaxed text-slate-800 border border-green-200">
                   {answer}
                 </div>
               </div>
 
               {source && (
-                <div className="mb-6 p-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
-                  <p className="text-indigo-700 font-medium flex items-center">
-                    <BookOpen className="w-5 h-5 ml-2" />
+                <div className="mb-4 p-3 md:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
+                  <p className="text-sm md:text-base text-indigo-700 font-medium flex items-center">
+                    <BookOpen className="w-4 h-4 md:w-5 md:h-5 ml-2" />
                     {source}
                   </p>
                 </div>
               )}
 
-              <div className="flex gap-4 justify-center flex-wrap">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   onClick={saveToFavorites}
                   variant="outline"
-                  className="border-2 border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300"
+                  className="border-2 border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
                 >
                   <Bookmark className="w-4 h-4 ml-2" />
                   حفظ في المفضلة
@@ -448,7 +481,7 @@ const Index = () => {
                 <Button
                   onClick={shareAnswer}
                   variant="outline"
-                  className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300"
+                  className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
                 >
                   <Send className="w-4 h-4 ml-2" />
                   مشاركة الإجابة
@@ -459,15 +492,15 @@ const Index = () => {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-12 text-slate-600">
-          <div className="max-w-2xl mx-auto">
-            <p className="font-amiri text-xl mb-4 text-indigo-700">
+        <div className="text-center mt-8 text-slate-600">
+          <div className="max-w-2xl mx-auto px-4">
+            <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">
               "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
             </p>
-            <p className="text-base leading-relaxed">
+            <p className="text-sm md:text-base leading-relaxed">
               الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
             </p>
-            <div className="flex items-center justify-center gap-2 mt-4 text-indigo-500">
+            <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
               <Star className="w-4 h-4" />
               <span className="text-sm">بارك الله فيك</span>
               <Star className="w-4 h-4" />
