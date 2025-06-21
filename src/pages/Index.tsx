@@ -18,16 +18,6 @@ const Index = () => {
   const [questionsToday, setQuestionsToday] = useState(0);
   const [subscription, setSubscription] = useState<any>(null);
 
-  const getUserIP = async () => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch {
-      return 'anonymous';
-    }
-  };
-
   const generateUserID = () => {
     const existing = localStorage.getItem('userID');
     if (existing) return existing;
@@ -77,7 +67,6 @@ const Index = () => {
       const userID = generateUserID();
       const today = new Date().toISOString().split('T')[0];
 
-      // جلب أو إنشاء سجل إحصائيات اليوم
       let { data: todayStats, error: statsError } = await supabase
         .from('stats')
         .select('*')
@@ -107,7 +96,6 @@ const Index = () => {
         todayStats = newStats;
       }
 
-      // تحديث عدد الأسئلة وطرحها
       const { count: questionsCount } = await supabase
         .from('questions')
         .select('*', { count: 'exact', head: true })
@@ -115,7 +103,6 @@ const Index = () => {
 
       setQuestionsToday(questionsCount || 0);
 
-      // تحديث عدد المستخدمين اليوميين
       if (todayStats) {
         const { error: updateError } = await supabase
           .from('stats')
@@ -136,7 +123,6 @@ const Index = () => {
     e.preventDefault();
     if (!question.trim()) return;
 
-    // التحقق من حد الأسئلة للمستخدمين المجانيين
     if (!subscription && questionsToday >= 999) {
       toast({
         title: "وصلت للحد اليومي",
@@ -152,7 +138,6 @@ const Index = () => {
     try {
       const userID = generateUserID();
       
-      // إضافة معرف المستخدم إلى السؤال
       const questionWithID = `${question}\n\n[معرف المستخدم: ${userID}]`;
       
       const response = await fetch('/api/ask-question', {
@@ -173,7 +158,6 @@ const Index = () => {
       const data = await response.json();
       setAnswer(data.answer);
 
-      // حفظ السؤال والإجابة في قاعدة البيانات
       const { error: saveError } = await supabase
         .from('questions')
         .insert({
@@ -187,7 +171,6 @@ const Index = () => {
         console.error('Error saving question:', saveError);
       }
 
-      // تحديث إحصائيات المستخدم
       await updateUserStats();
 
     } catch (error) {
@@ -203,43 +186,30 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12">
       <div className="container mx-auto max-w-2xl">
-        <Card className="bg-white/90 backdrop-blur-sm shadow-xl border-2 border-slate-200">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <div>
-              <CardTitle className="text-2xl font-bold font-amiri text-slate-800 flex items-center gap-2">
-                <Brain className="w-6 h-6 text-blue-600" />
-                مُعينك الديني
-              </CardTitle>
-              <CardDescription className="text-slate-600 text-sm">
-                اسأل سؤالك وسنجيب عليك من القرآن والسنة
-              </CardDescription>
-            </div>
-            <Link to="/subscription">
-              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
-                <Heart className="w-4 h-4 ml-1" />
-                المساهمة
-              </Button>
-            </Link>
+        <Card className="shadow-xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+              <Brain className="w-8 h-8 text-blue-600" />
+              مُعينك الديني
+            </CardTitle>
+            <CardDescription className="text-slate-600">
+              اسأل سؤالك وسنجيب عليك من القرآن والسنة
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="question" className="text-right font-amiri">السؤال</Label>
+              <Label htmlFor="question">السؤال</Label>
               <Input
                 id="question"
                 placeholder="اكتب سؤالك هنا..."
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                className="border-slate-300 focus:border-blue-500"
               />
             </div>
             <div className="flex justify-between items-center">
-              <Button 
-                onClick={handleSubmit}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={isLoading}
-              >
+              <Button onClick={handleSubmit} disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -260,9 +230,9 @@ const Index = () => {
             </div>
             {answer && (
               <div className="space-y-2 mt-6">
-                <Label htmlFor="answer" className="text-right font-amiri">الإجابة</Label>
-                <Card className="bg-slate-50 border-0">
-                  <CardContent>
+                <Label htmlFor="answer">الإجابة</Label>
+                <Card>
+                  <CardContent className="pt-4">
                     <p className="text-slate-700 whitespace-pre-line">{answer}</p>
                   </CardContent>
                 </Card>
@@ -270,15 +240,21 @@ const Index = () => {
             )}
           </CardContent>
         </Card>
-        <div className="text-center mt-4">
-          <Link to="/settings" className="text-blue-600 hover:underline">
-            <Button variant="ghost">
+        <div className="text-center mt-4 space-x-4">
+          <Link to="/subscription">
+            <Button variant="outline">
+              <Heart className="w-4 h-4 ml-1" />
+              المساهمة
+            </Button>
+          </Link>
+          <Link to="/settings">
+            <Button variant="outline">
               <UserCog className="w-4 h-4 ml-1" />
               الإعدادات
             </Button>
           </Link>
-          <Link to="/about" className="text-green-600 hover:underline ml-4">
-            <Button variant="ghost">
+          <Link to="/about">
+            <Button variant="outline">
               <Book className="w-4 h-4 ml-1" />
               عن التطبيق
             </Button>
