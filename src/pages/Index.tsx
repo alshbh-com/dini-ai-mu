@@ -1,95 +1,119 @@
-
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Brain, Book, Loader2, MessageSquare, UserCog, Heart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X, Volume2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
+import PrayerReminder from "@/components/PrayerReminder";
 import DuaaHeader from "@/components/DuaaHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import AdminPanel from "@/components/AdminPanel";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const [questionsToday, setQuestionsToday] = useState(0);
+  const [source, setSource] = useState("");
+  const [dailyQuestions, setDailyQuestions] = useState(5);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
+  const { toast } = useToast();
 
-  const generateUserID = () => {
-    const existing = localStorage.getItem('userID');
-    if (existing) return existing;
-    
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 5);
-    const userID = `USER_${timestamp}_${random}`.toUpperCase();
-    localStorage.setItem('userID', userID);
-    return userID;
-  };
-
+  // Load daily questions limit and subscription status
   useEffect(() => {
-    const userID = generateUserID();
-    console.log('User ID:', userID);
-  }, []);
-
-  useEffect(() => {
+    loadDailyLimit();
     checkSubscriptionStatus();
-    updateUserStats();
   }, []);
 
   const checkSubscriptionStatus = async () => {
     try {
-      const userID = generateUserID();
+      const userIP = await getUserIP();
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_ip', userID)
+        .eq('user_ip', userIP)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
-        .maybeSingle();
+        .single();
 
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error("Error checking subscription:", error);
-        setSubscription(null);
       } else {
         setSubscription(data);
+        // إذا كان المستخدم مشترك، ألغي حدود الأسئلة اليومية
+        if (data) {
+          setDailyQuestions(999); // أسئلة غير محدودة
+        }
       }
     } catch (error) {
       console.error("Error checking subscription:", error);
-      setSubscription(null);
+    } finally {
+      setIsSubscriptionLoading(false);
     }
   };
 
-  const updateUserStats = async () => {
+  const loadDailyLimit = async () => {
     try {
-      const userID = generateUserID();
-      const today = new Date().toISOString().split('T')[0];
-
-      const { count: questionsCount } = await supabase
-        .from('questions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_ip', userID)
-        .gte('created_at', today + 'T00:00:00.000Z')
-        .lte('created_at', today + 'T23:59:59.999Z');
-
-      setQuestionsToday(questionsCount || 0);
-
+      const { data } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'daily_question_limit')
+        .single();
+      
+      if (data) {
+        const saved = localStorage.getItem("dailyQuestions");
+        if (saved) {
+          const userData = JSON.parse(saved);
+          const today = new Date().toDateString();
+          if (userData.date === today) {
+            setDailyQuestions(userData.count);
+          } else {
+            setDailyQuestions(parseInt(data.setting_value));
+            localStorage.setItem("dailyQuestions", JSON.stringify({ 
+              date: today, 
+              count: parseInt(data.setting_value) 
+            }));
+          }
+        } else {
+          setDailyQuestions(parseInt(data.setting_value));
+        }
+      }
     } catch (error) {
-      console.error("Error updating user stats:", error);
+      console.error("Error loading daily limit:", error);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
+  const getUserIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch {
+      return 'anonymous';
+    }
+  };
 
-    if (!subscription && questionsToday >= 999) {
+  const askQuestion = async () => {
+    if (!question.trim()) {
       toast({
-        title: "وصلت للحد اليومي",
-        description: "تم الوصول للحد الأقصى من الأسئلة اليوم. جرب غداً أو فكر في المساهمة الشهرية.",
+        title: "تنبيه",
+        description: "يرجى كتابة السؤال أولاً",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // فحص حدود الأسئلة للمستخدمين غير المشتركين
+    if (!subscription && dailyQuestions <= 0) {
+      toast({
+        title: "انتهت الأسئلة المجانية",
+        description: "اشترك للحصول على أسئلة غير محدودة",
         variant: "destructive"
       });
       return;
@@ -97,151 +121,532 @@ const Index = () => {
 
     setIsLoading(true);
     setAnswer("");
-    
+    setSource("");
+
     try {
-      const userID = generateUserID();
-      
-      const questionWithID = `${question}\n\n[معرف المستخدم: ${userID}]`;
-      
-      console.log('Sending question to edge function...');
-      
-      const response = await fetch('https://gndhnoijwexuuayvxwom.supabase.co/functions/v1/ask-question', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGhub2lqd2V4dXVheXZ4d29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAzNzU4NTUsImV4cCI6MjA2NTk1MTg1NX0.rOuiEISzdVlvJvuKm_326YG3Lcl6-mUclcfwSsBDNrQ'}`,
-        },
-        body: JSON.stringify({ 
-          question: questionWithID,
-          subscription: subscription ? true : false
-        }),
-      });
+      // تحسين النص للمشتركين - إجابات أكثر تفصيلاً
+      const promptText = subscription 
+        ? `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. قدم إجابة مفصلة وشاملة مع ذكر المصادر والأدلة.
 
-      console.log('Response status:', response.status);
+        قواعد مهمة:
+        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+        - اذكر المصدر مع رقم الآية أو الحديث إن أمكن
+        - قدم الإجابة بتفصيل مناسب مع الشرح
+        
+        السؤال: ${question}`
+        : `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
+        
+        قواعد مهمة:
+        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+        - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
+        - كن مختصراً ومفيداً
+        
+        السؤال: ${question}`;
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error('فشل في الحصول على الإجابة');
-      }
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCyL3PUbUqM6LordRdgFtBX5jSeyFLEytM`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: promptText
+              }]
+            }]
+          })
+        }
+      );
 
       const data = await response.json();
-      console.log('Response data:', data);
       
-      if (data.answer) {
-        setAnswer(data.answer);
-
-        const { error: saveError } = await supabase
-          .from('questions')
-          .insert({
-            question: question,
-            answer: data.answer,
-            user_ip: userID,
-            source: data.source || null
-          });
-
-        if (saveError) {
-          console.error('Error saving question:', saveError);
+      if (data.candidates && data.candidates[0]) {
+        const responseText = data.candidates[0].content.parts[0].text;
+        setAnswer(responseText);
+        
+        let sourceText = "";
+        if (responseText.includes("القرآن") || responseText.includes("الحديث") || responseText.includes("البخاري") || responseText.includes("مسلم")) {
+          sourceText = subscription 
+            ? "المصدر: من القرآن الكريم والسنة النبوية الصحيحة - إجابة مفصلة للمشتركين"
+            : "المصدر: من القرآن الكريم والسنة النبوية الصحيحة";
+          setSource(sourceText);
         }
 
-        await updateUserStats();
-      } else {
-        throw new Error('لم يتم استلام إجابة');
-      }
+        // Save to database
+        const userIP = await getUserIP();
+        await supabase
+          .from('questions')
+          .insert({
+            question,
+            answer: responseText,
+            source: sourceText,
+            user_ip: userIP
+          });
 
+        // تحديث عدد الأسئلة للمستخدمين غير المشتركين فقط
+        if (!subscription) {
+          const newCount = dailyQuestions - 1;
+          setDailyQuestions(newCount);
+          const today = new Date().toDateString();
+          localStorage.setItem("dailyQuestions", JSON.stringify({ date: today, count: newCount }));
+        }
+
+        // Update stats
+        await updateStats();
+
+        const remainingMessage = subscription 
+          ? "أسئلة غير محدودة للمشتركين"
+          : `باقي لديك ${dailyQuestions - 1} أسئلة اليوم`;
+
+        toast({
+          title: "تم الحصول على الإجابة",
+          description: remainingMessage
+        });
+
+        // Clear question after getting answer to keep it private
+        setQuestion("");
+      } else {
+        throw new Error("No response from AI");
+      }
     } catch (error) {
-      console.error('Error asking question:', error);
       toast({
         title: "خطأ",
-        description: "حدث خطأ في الحصول على الإجابة. جرب مرة أخرى.",
+        description: "حدث خطأ في الحصول على الإجابة. حاول مرة أخرى",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
+      console.error("Error:", error);
+    }
+
+    setIsLoading(false);
+  };
+
+  const updateStats = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingStats } = await supabase
+        .from('stats')
+        .select('*')
+        .eq('date', today)
+        .single();
+
+      if (existingStats) {
+        await supabase
+          .from('stats')
+          .update({
+            total_questions: existingStats.total_questions + 1,
+            daily_users: existingStats.daily_users + 1
+          })
+          .eq('date', today);
+      } else {
+        await supabase
+          .from('stats')
+          .insert({
+            date: today,
+            total_questions: 1,
+            daily_users: 1
+          });
+      }
+    } catch (error) {
+      console.error("Error updating stats:", error);
     }
   };
 
+  const saveToFavorites = async () => {
+    if (!answer) return;
+    
+    try {
+      // فحص حدود المفضلة للمستخدمين غير المشتركين
+      if (!subscription) {
+        const userIP = await getUserIP();
+        const { count } = await supabase
+          .from('favorites')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_ip', userIP);
+
+        if (count && count >= 10) {
+          toast({
+            title: "تم الوصول للحد الأقصى",
+            description: "المستخدمون المجانيون يمكنهم حفظ 10 عناصر فقط. اشترك للحصول على حفظ غير محدود",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      const userIP = await getUserIP();
+      const { data: questionData } = await supabase
+        .from('questions')
+        .select('id')
+        .eq('question', question || "السؤال الحالي")
+        .eq('user_ip', userIP)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (questionData) {
+        await supabase
+          .from('favorites')
+          .insert({
+            question_id: questionData.id,
+            user_ip: userIP
+          });
+
+        toast({
+          title: "تم الحفظ",
+          description: subscription 
+            ? "تم إضافة السؤال والإجابة للمفضلة (حفظ غير محدود للمشتركين)"
+            : "تم إضافة السؤال والإجابة للمفضلة"
+        });
+      }
+    } catch (error) {
+      console.error("Error saving to favorites:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ في حفظ السؤال",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const shareAnswer = async () => {
+    if (!answer) return;
+    
+    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "مُعينك الديني",
+          text: shareText
+        });
+      } catch (error) {
+        navigator.clipboard.writeText(shareText);
+        toast({
+          title: "تم النسخ",
+          description: "تم نسخ الإجابة للحافظة"
+        });
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      toast({
+        title: "تم النسخ",
+        description: "تم نسخ الإجابة للحافظة"
+      });
+    }
+  };
+
+  // دالة تشغيل الصوت للمشتركين
+  const playAnswerAudio = () => {
+    if (!subscription) {
+      toast({
+        title: "ميزة المشتركين",
+        description: "الدعم الصوتي متاح للمشتركين فقط",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(answer);
+      utterance.lang = 'ar-SA';
+      utterance.rate = 0.8;
+      speechSynthesis.speak(utterance);
+      
+      toast({
+        title: "تم تشغيل الصوت",
+        description: "ميزة الدعم الصوتي للمشتركين"
+      });
+    } else {
+      toast({
+        title: "غير مدعوم",
+        description: "المتصفح لا يدعم تقنية تحويل النص لصوت",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (showAdminPanel) {
+    return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  }
+
+  if (isSubscriptionLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="text-slate-600 mt-4">جاري التحقق من حالة الاشتراك...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Header with Duaa */}
       <DuaaHeader />
-      <div className="flex items-center justify-center py-12">
-        <div className="container mx-auto max-w-2xl px-4">
-          <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-4xl font-bold text-slate-700 flex items-center justify-center gap-3 mb-2">
-                <Brain className="w-10 h-10 text-indigo-600" />
-                مُعينك الديني
-              </CardTitle>
-              <CardDescription className="text-slate-500 text-lg">
-                اسأل سؤالك وسنجيب عليك من القرآن والسنة
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 px-8 pb-8">
-              <div className="space-y-3">
-                <Label htmlFor="question" className="text-slate-600 font-medium">السؤال</Label>
-                <Input
-                  id="question"
-                  placeholder="اكتب سؤالك هنا..."
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  className="border-slate-200 focus:border-indigo-400 focus:ring-indigo-200 rounded-xl py-3 px-4 text-lg bg-slate-50/50"
-                />
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <Button 
-                  onClick={handleSubmit} 
-                  disabled={isLoading}
-                  className="bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-medium py-3 px-6 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      جاري البحث...
-                    </>
-                  ) : (
-                    <>
-                      <MessageSquare className="mr-2 h-5 w-5" />
-                      إرسال السؤال
-                    </>
-                  )}
-                </Button>
-                {!subscription && (
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg">
-                    {questionsToday} / 999 سؤال اليوم
-                  </Badge>
-                )}
-              </div>
-              {answer && (
-                <div className="space-y-3 mt-8">
-                  <Label htmlFor="answer" className="text-slate-600 font-medium">الإجابة</Label>
-                  <Card className="border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/30">
-                    <CardContent className="pt-6">
-                      <p className="text-slate-700 whitespace-pre-line leading-relaxed text-lg">{answer}</p>
-                    </CardContent>
-                  </Card>
-                </div>
+      
+      {/* Prayer Reminder for Premium Users */}
+      {subscription && <PrayerReminder />}
+
+      {/* Navigation */}
+      <div className="container mx-auto px-3 py-4">
+        {/* Mobile Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <BookOpen className="w-8 h-8 text-indigo-600" />
+              <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">مُعينك الديني</h1>
+              <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
+              {subscription && (
+                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs mt-1">
+                  <Crown className="w-3 h-3 ml-1" />
+                  مشترك مميز
+                </Badge>
               )}
-            </CardContent>
-          </Card>
-          <div className="text-center mt-6 space-x-4 flex justify-center gap-4 flex-wrap">
-            <Link to="/subscription">
-              <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl px-6 py-3">
+            </div>
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <Button
+            onClick={() => setShowMobileMenu(!showMobileMenu)}
+            variant="outline"
+            size="sm"
+            className="md:hidden border-slate-400 text-slate-600"
+          >
+            {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </Button>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex gap-2">
+            <Button
+              onClick={() => setShowAdminPanel(true)}
+              variant="outline"
+              size="sm"
+              className="border-red-400 text-red-600 hover:bg-red-50"
+            >
+              <Shield className="w-4 h-4 ml-1" />
+              الإدارة
+            </Button>
+            <Link to="/favorites">
+              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
                 <Heart className="w-4 h-4 ml-1" />
-                المساهمة
+                المفضلة
+              </Button>
+            </Link>
+            <Link to="/subscription">
+              <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50">
+                <Crown className="w-4 h-4 ml-1" />
+                الاشتراك
               </Button>
             </Link>
             <Link to="/settings">
-              <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl px-6 py-3">
-                <UserCog className="w-4 h-4 ml-1" />
+              <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50">
+                <Settings className="w-4 h-4 ml-1" />
                 الإعدادات
               </Button>
             </Link>
-            <Link to="/about">
-              <Button variant="outline" className="border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl px-6 py-3">
-                <Book className="w-4 h-4 ml-1" />
-                عن التطبيق
+          </div>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        {showMobileMenu && (
+          <div className="md:hidden mb-6 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-lg">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => {
+                  setShowAdminPanel(true);
+                  setShowMobileMenu(false);
+                }}
+                variant="outline"
+                size="sm"
+                className="border-red-400 text-red-600 hover:bg-red-50 w-full"
+              >
+                <Shield className="w-4 h-4 ml-1" />
+                الإدارة
               </Button>
-            </Link>
+              <Link to="/favorites">
+                <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50 w-full">
+                  <Heart className="w-4 h-4 ml-1" />
+                  المفضلة
+                </Button>
+              </Link>
+              <Link to="/subscription">
+                <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50 w-full">
+                  <Crown className="w-4 h-4 ml-1" />
+                  الاشتراك
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50 w-full">
+                  <Settings className="w-4 h-4 ml-1" />
+                  الإعدادات
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Daily Questions Counter */}
+        <div className="text-center mb-6">
+          <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
+            subscription 
+              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+              : 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
+          }`}>
+            {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
+            {subscription ? "أسئلة غير محدودة - مشترك مميز" : `الأسئلة المتبقية اليوم: ${dailyQuestions}`}
+            <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+          </div>
+        </div>
+
+        {/* Main Question Card */}
+        <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
+          <CardContent className="p-4 md:p-8">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
+                <h2 className="text-lg md:text-xl font-amiri text-slate-800">
+                  اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
+                </h2>
+                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
+              </div>
+              <p className="text-slate-600 text-sm md:text-base">
+                {subscription 
+                  ? "احصل على إجابات مفصلة وشاملة مع المصادر - للمشتركين المميزين"
+                  : "احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة"
+                }
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Textarea
+                  placeholder="اكتب سؤالك الديني هنا..."
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  className="min-h-[120px] md:min-h-[140px] text-base md:text-lg border-2 border-indigo-200 focus:border-indigo-400 bg-white/50 backdrop-blur-sm text-slate-800 placeholder:text-slate-500 rounded-xl"
+                  disabled={isLoading}
+                />
+                <div className="absolute top-3 right-3">
+                  <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={askQuestion}
+                  disabled={isLoading || (!subscription && dailyQuestions <= 0)}
+                  className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
+                >
+                  {isLoading ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                      اسأل الآن
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="border-2 border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-3 md:px-6 md:py-4 text-base md:text-lg rounded-xl transition-all duration-300 w-full sm:w-auto"
+                  disabled={isRecording}
+                >
+                  <Mic className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                  تسجيل صوتي
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Answer Card */}
+        {answer && (
+          <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
+            <CardContent className="p-4 md:p-8">
+              <div className="mb-4">
+                <h3 className="text-lg md:text-xl font-semibold text-slate-800 mb-3 flex items-center">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center ml-2">
+                    <Star className="w-3 h-3 md:w-5 md:h-5 text-white" />
+                  </div>
+                  الإجابة:
+                  {subscription && (
+                    <Badge className="bg-purple-600 text-white text-xs mr-2">
+                      <Crown className="w-3 h-3 ml-1" />
+                      مفصلة للمشتركين
+                    </Badge>
+                  )}
+                </h3>
+                <div className="bg-white/60 backdrop-blur-sm p-4 md:p-6 rounded-xl text-sm md:text-base leading-relaxed text-slate-800 border border-green-200">
+                  {answer}
+                </div>
+              </div>
+
+              {source && (
+                <div className="mb-4 p-3 md:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
+                  <p className="text-sm md:text-base text-indigo-700 font-medium flex items-center">
+                    <BookOpen className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                    {source}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={saveToFavorites}
+                  variant="outline"
+                  className="border-2 border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                >
+                  <Bookmark className="w-4 h-4 ml-2" />
+                  حفظ في المفضلة
+                </Button>
+
+                <Button
+                  onClick={shareAnswer}
+                  variant="outline"
+                  className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                >
+                  <Send className="w-4 h-4 ml-2" />
+                  مشاركة الإجابة
+                </Button>
+
+                {subscription && (
+                  <Button
+                    onClick={playAnswerAudio}
+                    variant="outline"
+                    className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                  >
+                    <Volume2 className="w-4 h-4 ml-2" />
+                    تشغيل صوتي
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-8 text-slate-600">
+          <div className="max-w-2xl mx-auto px-4">
+            <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">
+              "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
+            </p>
+            <p className="text-sm md:text-base leading-relaxed">
+              الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
+              <Star className="w-4 h-4" />
+              <span className="text-sm">بارك الله فيك</span>
+              <Star className="w-4 h-4" />
+            </div>
           </div>
         </div>
       </div>
