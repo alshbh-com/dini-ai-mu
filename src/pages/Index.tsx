@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,11 +51,11 @@ const Index = () => {
 
   const checkSubscriptionStatus = async () => {
     try {
-      const userIP = await getUserIP();
+      const userID = generateUserID();
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_ip', userIP)
+        .eq('user_id', userID)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
@@ -73,7 +74,7 @@ const Index = () => {
 
   const updateUserStats = async () => {
     try {
-      const userIP = await getUserIP();
+      const userID = generateUserID();
       const today = new Date().toISOString().split('T')[0];
 
       // جلب أو إنشاء سجل إحصائيات اليوم
@@ -89,22 +90,24 @@ const Index = () => {
       }
 
       if (!todayStats) {
-        const { error: insertError } = await supabase
+        const { data: newStats, error: insertError } = await supabase
           .from('stats')
-          .insert({ date: today, daily_users: 1 });
+          .insert({ date: today, daily_users: 1, total_questions: 0 })
+          .select()
+          .single();
 
         if (insertError) {
           console.error("Error inserting today's stats:", insertError);
           return;
         }
-        todayStats = { daily_users: 1 };
+        todayStats = newStats;
       }
 
       // تحديث عدد الأسئلة وطرحها
       const { count: questionsCount } = await supabase
         .from('questions')
         .select('*', { count: 'exact', head: true })
-        .eq('user_ip', userIP);
+        .eq('user_id', userID);
 
       setQuestionsToday(questionsCount || 0);
 
@@ -141,7 +144,6 @@ const Index = () => {
     setAnswer("");
     
     try {
-      const userIP = await getUserIP();
       const userID = generateUserID();
       
       // إضافة معرف المستخدم إلى السؤال
@@ -171,7 +173,7 @@ const Index = () => {
         .insert({
           question: question,
           answer: data.answer,
-          user_ip: userIP,
+          user_id: userID,
           source: data.source || null
         });
 
