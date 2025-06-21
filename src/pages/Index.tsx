@@ -55,12 +55,12 @@ const Index = () => {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', userID)
+        .eq('user_ip', userID)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error("Error checking subscription:", error);
         setSubscription(null);
       } else {
@@ -82,9 +82,9 @@ const Index = () => {
         .from('stats')
         .select('*')
         .eq('date', today)
-        .single();
+        .maybeSingle();
 
-      if (statsError && statsError.code !== 'PGRST116') {
+      if (statsError) {
         console.error("Error fetching today's stats:", statsError);
         return;
       }
@@ -92,9 +92,13 @@ const Index = () => {
       if (!todayStats) {
         const { data: newStats, error: insertError } = await supabase
           .from('stats')
-          .insert({ date: today, daily_users: 1, total_questions: 0 })
+          .insert({ 
+            date: today, 
+            daily_users: 1, 
+            total_questions: 0 
+          })
           .select()
-          .single();
+          .maybeSingle();
 
         if (insertError) {
           console.error("Error inserting today's stats:", insertError);
@@ -107,18 +111,20 @@ const Index = () => {
       const { count: questionsCount } = await supabase
         .from('questions')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', userID);
+        .eq('user_ip', userID);
 
       setQuestionsToday(questionsCount || 0);
 
       // تحديث عدد المستخدمين اليوميين
-      const { error: updateError } = await supabase
-        .from('stats')
-        .update({ daily_users: (todayStats.daily_users || 0) + 1 })
-        .eq('date', today);
+      if (todayStats) {
+        const { error: updateError } = await supabase
+          .from('stats')
+          .update({ daily_users: (todayStats.daily_users || 0) + 1 })
+          .eq('date', today);
 
-      if (updateError) {
-        console.error("Error updating daily users:", updateError);
+        if (updateError) {
+          console.error("Error updating daily users:", updateError);
+        }
       }
 
     } catch (error) {
@@ -131,7 +137,7 @@ const Index = () => {
     if (!question.trim()) return;
 
     // التحقق من حد الأسئلة للمستخدمين المجانيين
-    if (!subscription && questionsToday >= 999) { // رفع الحد إلى عدد كبير جداً
+    if (!subscription && questionsToday >= 999) {
       toast({
         title: "وصلت للحد اليومي",
         description: "تم الوصول للحد الأقصى من الأسئلة اليوم. جرب غداً أو فكر في المساهمة الشهرية.",
@@ -173,7 +179,7 @@ const Index = () => {
         .insert({
           question: question,
           answer: data.answer,
-          user_id: userID,
+          user_ip: userID,
           source: data.source || null
         });
 
