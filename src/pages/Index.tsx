@@ -9,6 +9,7 @@ import { Brain, Book, Loader2, MessageSquare, UserCog, Heart } from "lucide-reac
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import DuaaHeader from "@/components/DuaaHeader";
 
 const Index = () => {
   const [question, setQuestion] = useState("");
@@ -186,79 +187,82 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12">
-      <div className="container mx-auto max-w-2xl">
-        <Card className="shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
-              <Brain className="w-8 h-8 text-blue-600" />
-              مُعينك الديني
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              اسأل سؤالك وسنجيب عليك من القرآن والسنة
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="question">السؤال</Label>
-              <Input
-                id="question"
-                placeholder="اكتب سؤالك هنا..."
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-between items-center">
-              <Button onClick={handleSubmit} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    جاري البحث
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    إرسال السؤال
-                  </>
-                )}
-              </Button>
-              {!subscription && (
-                <Badge variant="secondary">
-                  {questionsToday} / 999 سؤال اليوم
-                </Badge>
-              )}
-            </div>
-            {answer && (
-              <div className="space-y-2 mt-6">
-                <Label htmlFor="answer">الإجابة</Label>
-                <Card>
-                  <CardContent className="pt-4">
-                    <p className="text-slate-700 whitespace-pre-line">{answer}</p>
-                  </CardContent>
-                </Card>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <DuaaHeader />
+      <div className="flex items-center justify-center py-12">
+        <div className="container mx-auto max-w-2xl">
+          <Card className="shadow-xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold text-slate-800 flex items-center justify-center gap-2">
+                <Brain className="w-8 h-8 text-blue-600" />
+                مُعينك الديني
+              </CardTitle>
+              <CardDescription className="text-slate-600">
+                اسأل سؤالك وسنجيب عليك من القرآن والسنة
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="question">السؤال</Label>
+                <Input
+                  id="question"
+                  placeholder="اكتب سؤالك هنا..."
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
-        <div className="text-center mt-4 space-x-4">
-          <Link to="/subscription">
-            <Button variant="outline">
-              <Heart className="w-4 h-4 ml-1" />
-              المساهمة
-            </Button>
-          </Link>
-          <Link to="/settings">
-            <Button variant="outline">
-              <UserCog className="w-4 h-4 ml-1" />
-              الإعدادات
-            </Button>
-          </Link>
-          <Link to="/about">
-            <Button variant="outline">
-              <Book className="w-4 h-4 ml-1" />
-              عن التطبيق
-            </Button>
-          </Link>
+              <div className="flex justify-between items-center">
+                <Button onClick={handleSubmit} disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      جاري البحث
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      إرسال السؤال
+                    </>
+                  )}
+                </Button>
+                {!subscription && (
+                  <Badge variant="secondary">
+                    {questionsToday} / 999 سؤال اليوم
+                  </Badge>
+                )}
+              </div>
+              {answer && (
+                <div className="space-y-2 mt-6">
+                  <Label htmlFor="answer">الإجابة</Label>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-slate-700 whitespace-pre-line">{answer}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <div className="text-center mt-4 space-x-4">
+            <Link to="/subscription">
+              <Button variant="outline">
+                <Heart className="w-4 h-4 ml-1" />
+                المساهمة
+              </Button>
+            </Link>
+            <Link to="/settings">
+              <Button variant="outline">
+                <UserCog className="w-4 h-4 ml-1" />
+                الإعدادات
+              </Button>
+            </Link>
+            <Link to="/about">
+              <Button variant="outline">
+                <Book className="w-4 h-4 ml-1" />
+                عن التطبيق
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </div>
