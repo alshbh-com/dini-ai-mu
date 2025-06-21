@@ -14,6 +14,9 @@ serve(async (req) => {
 
   try {
     const { question, subscription = false } = await req.json();
+    
+    console.log('Received question:', question);
+    console.log('OpenAI API Key exists:', !!Deno.env.get('OPENAI_API_KEY'));
 
     // إزالة معرف المستخدم من السؤال للمعالجة
     const cleanQuestion = question.replace(/\[معرف المستخدم:.*?\]/g, '').trim();
@@ -36,10 +39,31 @@ ${cleanQuestion}
 
 يرجى تقديم إجابة شاملة مع الأدلة الأساسية من القرآن والسنة.`;
 
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY not found');
+      return new Response(
+        JSON.stringify({ 
+          error: 'مفتاح OpenAI غير موجود',
+          answer: 'عذراً، حدث خطأ في الإعدادات. يرجى المحاولة لاحقاً.'
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
+    console.log('Making request to OpenAI...');
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -59,12 +83,18 @@ ${cleanQuestion}
       }),
     });
 
+    console.log('OpenAI response status:', response.status);
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
-    const answer = data.choices[0]?.message?.content || 'عذراً، لم أتمكن من الحصول على إجابة. جرب مرة أخرى.';
+    console.log('OpenAI response received');
+    
+    const answer = data.choices?.[0]?.message?.content || 'عذراً، لم أتمكن من الحصول على إجابة. جرب مرة أخرى.';
 
     return new Response(
       JSON.stringify({ 
@@ -85,7 +115,8 @@ ${cleanQuestion}
     return new Response(
       JSON.stringify({ 
         error: 'حدث خطأ في المعالجة. جرب مرة أخرى.',
-        details: error.message 
+        details: error.message,
+        answer: 'عذراً، حدث خطأ تقني. يرجى إعادة المحاولة.'
       }),
       { 
         status: 500,
