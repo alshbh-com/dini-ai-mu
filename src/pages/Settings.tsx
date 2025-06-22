@@ -336,7 +336,7 @@ const Settings = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">الشركة</span>
-              <span className="font-medium text-slate-800">الشبه</span>
+              <span className="font-medium text-slate-800">Alshbh</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">واتساب</span>
@@ -356,7 +356,7 @@ const Settings = () => {
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-600">اسم التطبيق</span>
-              <span className="font-medium text-slate-800">مُعينك الديني</span>
+              <span className="font-medium text-slate-800">اسأل في الدين</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">الإصدار</span>
@@ -377,7 +377,7 @@ const Settings = () => {
           <Button 
             onClick={() => {
               const phoneNumber = "201204486263";
-              const message = `السلام عليكم، أحتاج مساعدة في تطبيق مُعينك الديني\nمعرف المستخدم: ${userIdentifier}`;
+              const message = `السلام عليكم، أحتاج مساعدة في تطبيق اسأل في الدين\nمعرف المستخدم: ${userIdentifier}`;
               const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
               window.open(whatsappURL, '_blank');
             }}

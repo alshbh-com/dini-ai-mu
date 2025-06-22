@@ -123,7 +123,7 @@ const Index = () => {
         - المطور: محمد عبد العظيم علي
         - الجنسية: مصري
         - العمر: 19 عام
-        - اسم الشركة: الشبه
+        - اسم الشركة: Alshbh
         - رقم التواصل واتساب: +201204486263
         
         التطبيق يهدف لنشر العلم الشرعي وخدمة المسلمين بتقديم إجابات من القرآن والسنة.
@@ -314,12 +314,12 @@ const Index = () => {
   const shareAnswer = async () => {
     if (!answer) return;
     
-    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني\nتطوير: محمد عبد العظيم علي\nواتساب: +201204486263\nمعرف المستخدم: ${userIdentifier}`;
+    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: اسأل في الدين\nتطوير: محمد عبد العظيم علي\nواتساب: +201204486263\nمعرف المستخدم: ${userIdentifier}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "مُعينك الديني",
+          title: "اسأل في الدين",
           text: shareText
         });
       } catch (error) {
@@ -397,7 +397,7 @@ const Index = () => {
               <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">مُعينك الديني</h1>
+              <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">اسأل في الدين</h1>
               <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
               {subscription && (
                 <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs mt-1">
@@ -695,7 +695,7 @@ const Index = () => {
               الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
             </p>
             <p className="text-xs text-slate-500 mb-4">
-              تطوير: محمد عبد العظيم علي - مصر | واتساب: +201204486263
+              تطوير: محمد عبد العظيم علي - مصر | شركة: Alshbh | واتساب: +201204486263
             </p>
             <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
               <Star className="w-4 h-4" />
