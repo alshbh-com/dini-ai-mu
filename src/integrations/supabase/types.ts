@@ -113,32 +113,106 @@ export type Database = {
         }
         Relationships: []
       }
-      subscriptions: {
+      subscription_activations: {
+        Row: {
+          activated_by: string | null
+          activated_features: Json | null
+          activation_date: string
+          id: string
+          notes: string | null
+          subscription_id: string | null
+          user_identifier: string
+        }
+        Insert: {
+          activated_by?: string | null
+          activated_features?: Json | null
+          activation_date?: string
+          id?: string
+          notes?: string | null
+          subscription_id?: string | null
+          user_identifier: string
+        }
+        Update: {
+          activated_by?: string | null
+          activated_features?: Json | null
+          activation_date?: string
+          id?: string
+          notes?: string | null
+          subscription_id?: string | null
+          user_identifier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_activations_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_features: {
         Row: {
           created_at: string
+          feature_description_ar: string | null
+          feature_key: string
+          feature_name_ar: string
+          id: string
+          is_premium: boolean
+        }
+        Insert: {
+          created_at?: string
+          feature_description_ar?: string | null
+          feature_key: string
+          feature_name_ar: string
+          id?: string
+          is_premium?: boolean
+        }
+        Update: {
+          created_at?: string
+          feature_description_ar?: string | null
+          feature_key?: string
+          feature_name_ar?: string
+          id?: string
+          is_premium?: boolean
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          activated_by: string | null
+          created_at: string
           end_date: string
+          features_enabled: Json | null
           id: string
           is_active: boolean
+          last_activated: string | null
           start_date: string
           subscription_type: string
           updated_at: string
           user_ip: string
         }
         Insert: {
+          activated_by?: string | null
           created_at?: string
           end_date?: string
+          features_enabled?: Json | null
           id?: string
           is_active?: boolean
+          last_activated?: string | null
           start_date?: string
           subscription_type?: string
           updated_at?: string
           user_ip: string
         }
         Update: {
+          activated_by?: string | null
           created_at?: string
           end_date?: string
+          features_enabled?: Json | null
           id?: string
           is_active?: boolean
+          last_activated?: string | null
           start_date?: string
           subscription_type?: string
           updated_at?: string

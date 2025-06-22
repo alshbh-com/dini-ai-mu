@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, X, Trash2, Plus, Crown } from "lucide-react";
+import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, X, Trash2, Plus, Crown, Star, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -19,10 +20,12 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     totalQuestions: 0,
     totalFavorites: 0,
     dailyUsers: 0,
-    activeSubscriptions: 0
+    activeSubscriptions: 0,
+    totalFeatures: 0
   });
   const [questions, setQuestions] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [features, setFeatures] = useState<any[]>([]);
   const [newSubscriptionIP, setNewSubscriptionIP] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -82,6 +85,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
         .from('favorites')
         .select('*', { count: 'exact', head: true });
 
+      // Load features count
+      const { count: featuresCount } = await supabase
+        .from('subscription_features')
+        .select('*', { count: 'exact', head: true });
+
       // Load active subscriptions
       const { data: activeSubscriptions, count: subscriptionsCount } = await supabase
         .from('subscriptions')
@@ -96,15 +104,24 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
         .order('created_at', { ascending: false })
         .limit(10);
 
+      // Load premium features
+      const { data: premiumFeatures } = await supabase
+        .from('subscription_features')
+        .select('*')
+        .eq('is_premium', true)
+        .order('created_at', { ascending: true });
+
       setStats({
         totalQuestions: questionsCount || 0,
         totalFavorites: favoritesCount || 0,
         dailyUsers: Math.floor(Math.random() * 50) + 10, // محاكاة بيانات
-        activeSubscriptions: subscriptionsCount || 0
+        activeSubscriptions: subscriptionsCount || 0,
+        totalFeatures: featuresCount || 0
       });
 
       setQuestions(recentQuestions || []);
       setSubscriptions(activeSubscriptions || []);
+      setFeatures(premiumFeatures || []);
     } catch (error) {
       console.error("Error loading admin data:", error);
     }
@@ -121,6 +138,12 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     }
 
     try {
+      // تحضير جميع المميزات للتفعيل
+      const allFeatures = features.reduce((acc, feature) => {
+        acc[feature.feature_key] = true;
+        return acc;
+      }, {} as Record<string, boolean>);
+
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 1);
 
@@ -132,6 +155,9 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           is_active: true,
           start_date: new Date().toISOString(),
           end_date: endDate.toISOString(),
+          features_enabled: allFeatures,
+          last_activated: new Date().toISOString(),
+          activated_by: 'admin',
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_ip'
@@ -143,7 +169,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       loadAdminData();
       toast({
         title: "تم الإضافة",
-        description: "تم تفعيل الاشتراك الشهري بنجاح"
+        description: `تم تفعيل الاشتراك الشهري بجميع المميزات الـ${features.length} بنجاح`
       });
     } catch (error) {
       console.error("Error adding subscription:", error);
@@ -297,7 +323,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card className="shadow-lg border-indigo-200 bg-white/80">
             <CardContent className="p-6 text-center">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 text-indigo-600" />
@@ -331,6 +357,14 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
               <p className="text-slate-600">عناصر محفوظة</p>
             </CardContent>
           </Card>
+
+          <Card className="shadow-lg border-green-200 bg-white/80">
+            <CardContent className="p-6 text-center">
+              <Star className="w-12 h-12 mx-auto mb-4 text-green-600" />
+              <h3 className="text-2xl font-bold text-slate-800">{stats.totalFeatures}</h3>
+              <p className="text-slate-600">مميزات مميزة</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Subscription Management */}
@@ -338,7 +372,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
               <Crown className="w-6 h-6 text-purple-600" />
-              إدارة الاشتراكات
+              إدارة الاشتراكات مع المميزات
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -354,18 +388,24 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 <Plus className="w-4 h-4 ml-1" />
-                تفعيل اشتراك شهري
+                تفعيل جميع المميزات ({features.length})
               </Button>
             </div>
 
             <div className="space-y-3 max-h-64 overflow-y-auto">
               {subscriptions.map((sub) => (
                 <div key={sub.id} className="flex justify-between items-center p-3 border border-slate-200 rounded-lg bg-slate-50">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-slate-800">IP: {sub.user_ip}</p>
                     <p className="text-sm text-slate-600">
                       انتهاء: {new Date(sub.end_date).toLocaleDateString('ar-SA')}
                     </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="bg-green-600 text-white text-xs">
+                        <CheckCircle className="w-3 h-3 ml-1" />
+                        {Object.keys(sub.features_enabled || {}).length} ميزة مفعلة
+                      </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-green-600 text-white">نشط</Badge>
@@ -383,6 +423,33 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
               {subscriptions.length === 0 && (
                 <p className="text-center text-slate-500 py-8">لا توجد اشتراكات نشطة</p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Premium Features Overview */}
+        <Card className="shadow-lg border-slate-200 bg-white/80 mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Star className="w-6 h-6 text-green-600" />
+              المميزات المميزة المتاحة ({features.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+              {features.map((feature, index) => (
+                <div key={feature.id} className="p-3 border border-green-200 rounded-lg bg-green-50">
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-green-200 flex items-center justify-center text-xs">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-green-800">{feature.feature_name_ar}</h4>
+                      <p className="text-xs text-green-700 mt-1">{feature.feature_description_ar}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

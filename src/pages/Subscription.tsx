@@ -1,17 +1,21 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Crown, Check, MessageCircle, Heart, Star, Loader2, Gift, Award } from "lucide-react";
+import { ArrowRight, Crown, Check, MessageCircle, Heart, Star, Loader2, Gift, Award, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserIdentifier } from "@/utils/userIdentifier";
+import PremiumFeaturesList from "@/components/PremiumFeaturesList";
+import SubscriptionActivation from "@/components/SubscriptionActivation";
 
 const Subscription = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userIdentifier, setUserIdentifier] = useState("");
+  const [showActivationPanel, setShowActivationPanel] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,7 +48,7 @@ const Subscription = () => {
 
   const contactWhatsApp = () => {
     const phoneNumber = "201204486263";
-    const message = `السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والمشاركة في المسابقات الشهرية\n\nمعرف المستخدم: ${userIdentifier}`;
+    const message = `السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والحصول على جميع المميزات الـ30\n\nمعرف المستخدم: ${userIdentifier}`;
     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappURL, '_blank');
   };
@@ -59,7 +63,7 @@ const Subscription = () => {
       "تحديثات التطبيق",
       "واجهة سهلة الاستخدام"
     ],
-    premium: [
+    premiumSummary: [
       "أسئلة غير محدودة",
       "إجابات مفصلة مع المصادر",
       "حفظ غير محدود في المفضلة",
@@ -69,7 +73,7 @@ const Subscription = () => {
       "المشاركة في المسابقات الشهرية",
       "دخول قناة المسابقات الخاصة",
       "دعم فني مخصص",
-      "ميزات حصرية جديدة"
+      "و 21 ميزة إضافية حصرية..."
     ]
   };
 
@@ -99,7 +103,28 @@ const Subscription = () => {
             <Crown className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" />
             <h1 className="text-2xl sm:text-3xl font-bold font-amiri text-slate-800">خطط المساهمة</h1>
           </div>
+          <Button
+            onClick={() => setShowActivationPanel(!showActivationPanel)}
+            variant="outline"
+            size="sm"
+            className="ml-auto border-purple-400 text-purple-600 hover:bg-purple-50"
+          >
+            <Settings className="w-4 h-4 ml-1" />
+            تفعيل اشتراك
+          </Button>
         </div>
+
+        {/* Admin Activation Panel */}
+        {showActivationPanel && (
+          <div className="mb-8">
+            <SubscriptionActivation 
+              onActivationSuccess={() => {
+                setShowActivationPanel(false);
+                checkSubscriptionStatus(userIdentifier);
+              }} 
+            />
+          </div>
+        )}
 
         {/* User ID Display */}
         <Card className="mb-6 bg-blue-50 border-blue-200">
@@ -145,12 +170,16 @@ const Subscription = () => {
               <p className="text-purple-700 mb-4">
                 انتهاء المساهمة: {new Date(subscription.end_date).toLocaleDateString('ar-SA')}
               </p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex gap-2 justify-center flex-wrap">
                 <Badge className="bg-purple-600 text-white">
                   {subscription.subscription_type === 'monthly' ? 'شهري' : 'سنوي'}
                 </Badge>
                 <Badge className="bg-green-600 text-white">
                   <Gift className="w-3 h-3 ml-1" />
+                  جميع المميزات مفعلة
+                </Badge>
+                <Badge className="bg-blue-600 text-white">
+                  <Award className="w-3 h-3 ml-1" />
                   مؤهل للمسابقات
                 </Badge>
               </div>
@@ -159,18 +188,18 @@ const Subscription = () => {
         )}
 
         {/* Subscription Plans */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Free Plan - Enhanced */}
+        <div className="grid gap-6 lg:grid-cols-2 mb-8">
+          {/* Free Plan */}
           <Card className="relative shadow-lg border-2 border-gray-200 bg-white/80 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl sm:text-2xl font-amiri text-slate-800 flex items-center justify-center gap-2">
                 <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
-                الاستخدام المجاني المحسن
+                الاستخدام المجاني
               </CardTitle>
               <div className="text-2xl sm:text-3xl font-bold text-slate-800 mt-2">
                 مجاناً
               </div>
-              <p className="text-slate-600 text-sm">مميزات محسنة للجميع</p>
+              <p className="text-slate-600 text-sm">للجميع</p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 mb-6">
@@ -190,27 +219,27 @@ const Subscription = () => {
             </CardContent>
           </Card>
 
-          {/* Premium Plan - Enhanced */}
+          {/* Premium Plan */}
           <Card className="relative shadow-xl border-2 border-indigo-500 bg-gradient-to-br from-white to-indigo-50 bg-white/80 backdrop-blur-sm">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
               <Badge className="bg-indigo-600 text-white px-4 py-1 text-sm font-semibold">
                 <Award className="w-3 h-3 ml-1" />
-                الأكثر أجراً
+                30 ميزة حصرية
               </Badge>
             </div>
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl sm:text-2xl font-amiri text-slate-800 flex items-center justify-center gap-2">
                 <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-                المساهمة الشهرية المحسنة
+                المساهمة الشهرية
               </CardTitle>
               <div className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-2">
                 مساهمة شهرية
               </div>
-              <p className="text-slate-600 text-sm">مميزات حصرية ومتقدمة</p>
+              <p className="text-slate-600 text-sm">30 ميزة حصرية ومتقدمة</p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 mb-6">
-                {features.premium.map((feature, index) => (
+                {features.premiumSummary.map((feature, index) => (
                   <li key={index} className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                     <span>{feature}</span>
@@ -227,6 +256,11 @@ const Subscription = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Detailed Features List */}
+        <div className="mb-8">
+          <PremiumFeaturesList isSubscribed={!!subscription} />
         </div>
 
         {/* Monthly Contests Info */}
