@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,29 +10,33 @@ import { supabase } from "@/integrations/supabase/client";
 const Subscription = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [userIdentifier, setUserIdentifier] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
-    checkSubscriptionStatus();
+    const userId = getUserIdentifier();
+    setUserIdentifier(userId);
+    checkSubscriptionStatus(userId);
   }, []);
 
-  const getUserIP = async () => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch {
-      return 'anonymous';
+  const getUserIdentifier = () => {
+    const stored = localStorage.getItem('user_identifier');
+    if (stored) {
+      return stored;
     }
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2);
+    const identifier = `user_${timestamp}_${random}`;
+    localStorage.setItem('user_identifier', identifier);
+    return identifier;
   };
 
-  const checkSubscriptionStatus = async () => {
+  const checkSubscriptionStatus = async (userId: string) => {
     try {
-      const userIP = await getUserIP();
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_ip', userIP)
+        .eq('user_id', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
@@ -52,17 +55,20 @@ const Subscription = () => {
 
   const contactWhatsApp = () => {
     const phoneNumber = "201204486263";
-    const message = "السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والمشاركة في المسابقات الشهرية";
+    const message = `السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والمشاركة في المسابقات الشهرية\n\nمعرف المستخدم: ${userIdentifier}`;
     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappURL, '_blank');
   };
 
   const features = {
     free: [
-      "5 أسئلة يومياً",
+      "10 أسئلة يومياً",
       "إجابات من القرآن والسنة", 
-      "حفظ 10 أسئلة في المفضلة",
-      "مشاركة الإجابات"
+      "حفظ 20 سؤال في المفضلة",
+      "مشاركة الإجابات",
+      "دعم فني أساسي",
+      "تحديثات التطبيق",
+      "واجهة سهلة الاستخدام"
     ],
     premium: [
       "أسئلة غير محدودة",
@@ -73,7 +79,8 @@ const Subscription = () => {
       "إشعارات تذكير الصلاة",
       "المشاركة في المسابقات الشهرية",
       "دخول قناة المسابقات الخاصة",
-      "دعم فني مخصص"
+      "دعم فني مخصص",
+      "ميزات حصرية جديدة"
     ]
   };
 
@@ -105,6 +112,19 @@ const Subscription = () => {
           </div>
         </div>
 
+        {/* User ID Display */}
+        <Card className="mb-6 bg-blue-50 border-blue-200">
+          <CardContent className="p-4 text-center">
+            <div className="bg-white p-3 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700 mb-2">معرف المستخدم للاشتراك:</p>
+              <p className="font-mono text-sm text-blue-800 break-all">{userIdentifier}</p>
+              <p className="text-xs text-blue-600 mt-2">
+                أرسل هذا المعرف عبر واتساب لتفعيل اشتراكك
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Important Notice */}
         <Card className="mb-8 bg-green-50 border-2 border-green-200">
           <CardContent className="p-6 text-center">
@@ -121,7 +141,7 @@ const Subscription = () => {
                 🎁 <strong>المسابقات الشهرية:</strong> للمساهمين فقط كنوع من التشجيع والتقدير
               </p>
               <p className="text-sm leading-relaxed font-semibold">
-                ﴿وَمَن يُشَاقِقِ الرَّسُولَ مِن بَعْدِ مَا تَبَيَّنَ لَهُ الْهُدَىٰ وَيَتَّبِعْ غَيْرَ سَبِيلِ الْمُؤْمِنِينَ نُوَلِّهِ مَا تَوَلَّىٰ وَنُصْلِهِ جَهَنَّمَ ۖ وَسَاءَتْ مَصِيرًا﴾
+                ﴿وَمَن يُشَاقِقِ الرَّسُولَ مِن بَعْدِ مَا تَبَيَّنَ لَهُ الْهُدَىٰ وَيَتَّبِعْ غَيْرَ سَبِيلِ الْمُؤْمِنِينَ نُوَلِّهِ مَا تَوَلَّىٰ وَنُصْلِهِ جَهَنَّمَ ۖ وَساءَتْ مَصِيرًا﴾
               </p>
             </div>
           </CardContent>
@@ -151,17 +171,17 @@ const Subscription = () => {
 
         {/* Subscription Plans */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Free Plan */}
+          {/* Free Plan - Enhanced */}
           <Card className="relative shadow-lg border-2 border-gray-200 bg-white/80 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl sm:text-2xl font-amiri text-slate-800 flex items-center justify-center gap-2">
                 <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
-                الاستخدام المجاني
+                الاستخدام المجاني المحسن
               </CardTitle>
               <div className="text-2xl sm:text-3xl font-bold text-slate-800 mt-2">
                 مجاناً
               </div>
-              <p className="text-slate-600 text-sm">للاستخدام الأساسي</p>
+              <p className="text-slate-600 text-sm">مميزات محسنة للجميع</p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 mb-6">
@@ -181,7 +201,7 @@ const Subscription = () => {
             </CardContent>
           </Card>
 
-          {/* Premium Plan */}
+          {/* Premium Plan - Enhanced */}
           <Card className="relative shadow-xl border-2 border-indigo-500 bg-gradient-to-br from-white to-indigo-50 bg-white/80 backdrop-blur-sm">
             <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
               <Badge className="bg-indigo-600 text-white px-4 py-1 text-sm font-semibold">
@@ -192,12 +212,12 @@ const Subscription = () => {
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl sm:text-2xl font-amiri text-slate-800 flex items-center justify-center gap-2">
                 <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-                المساهمة الشهرية
+                المساهمة الشهرية المحسنة
               </CardTitle>
               <div className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-2">
                 مساهمة شهرية
               </div>
-              <p className="text-slate-600 text-sm">للمساعدة في تكاليف التطبيق</p>
+              <p className="text-slate-600 text-sm">مميزات حصرية ومتقدمة</p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 mb-6">
@@ -297,14 +317,19 @@ const Subscription = () => {
           <p className="text-slate-600 mb-4 text-sm">
             للمساهمة أو الاستفسار عن المسابقات، تواصل معنا عبر واتساب
           </p>
-          <Button 
-            onClick={contactWhatsApp}
-            variant="outline"
-            className="border-indigo-500 text-indigo-600 hover:bg-indigo-50"
-          >
-            <MessageCircle className="w-4 h-4 ml-2" />
-            +20 120 448 6263
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={contactWhatsApp}
+              variant="outline"
+              className="border-indigo-500 text-indigo-600 hover:bg-indigo-50"
+            >
+              <MessageCircle className="w-4 h-4 ml-2" />
+              +20 120 448 6263
+            </Button>
+            <p className="text-xs text-slate-500">
+              تطوير: محمد عبد العظيم علي - الشبه
+            </p>
+          </div>
         </div>
       </div>
     </div>

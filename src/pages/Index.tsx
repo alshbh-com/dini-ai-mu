@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X, Volume2 } from "lucide-react";
+import { BookOpen, Mic, Send, Heart, Settings, Star, Crown, Bookmark, Sparkles, Moon, Shield, Menu, X, Volume2, Calendar, Award, Users, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import PrayerReminder from "@/components/PrayerReminder";
@@ -11,33 +12,36 @@ import DuaaHeader from "@/components/DuaaHeader";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import AdminPanel from "@/components/AdminPanel";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserIdentifier } from "@/utils/userIdentifier";
 
 const Index = () => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [source, setSource] = useState("");
-  const [dailyQuestions, setDailyQuestions] = useState(5);
+  const [dailyQuestions, setDailyQuestions] = useState(10); // تم زيادة الحد المجاني
   const [isRecording, setIsRecording] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
+  const [userIdentifier, setUserIdentifier] = useState("");
   const { toast } = useToast();
 
   // Load daily questions limit and subscription status
   useEffect(() => {
+    const identifier = getUserIdentifier();
+    setUserIdentifier(identifier);
     loadDailyLimit();
-    checkSubscriptionStatus();
+    checkSubscriptionStatus(identifier);
   }, []);
 
-  const checkSubscriptionStatus = async () => {
+  const checkSubscriptionStatus = async (userId: string) => {
     try {
-      const userIP = await getUserIP();
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_ip', userIP)
+        .eq('user_id', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
@@ -46,9 +50,8 @@ const Index = () => {
         console.error("Error checking subscription:", error);
       } else {
         setSubscription(data);
-        // إذا كان المستخدم مشترك، ألغي حدود الأسئلة اليومية
         if (data) {
-          setDailyQuestions(999); // أسئلة غير محدودة
+          setDailyQuestions(999); // أسئلة غير محدودة للمشتركين
         }
       }
     } catch (error) {
@@ -74,28 +77,18 @@ const Index = () => {
           if (userData.date === today) {
             setDailyQuestions(userData.count);
           } else {
-            setDailyQuestions(parseInt(data.setting_value));
+            setDailyQuestions(parseInt(data.setting_value) || 10);
             localStorage.setItem("dailyQuestions", JSON.stringify({ 
               date: today, 
-              count: parseInt(data.setting_value) 
+              count: parseInt(data.setting_value) || 10
             }));
           }
         } else {
-          setDailyQuestions(parseInt(data.setting_value));
+          setDailyQuestions(parseInt(data.setting_value) || 10);
         }
       }
     } catch (error) {
       console.error("Error loading daily limit:", error);
-    }
-  };
-
-  const getUserIP = async () => {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch {
-      return 'anonymous';
     }
   };
 
@@ -124,26 +117,42 @@ const Index = () => {
     setSource("");
 
     try {
-      // تحسين النص للمشتركين - إجابات أكثر تفصيلاً
-      const promptText = subscription 
-        ? `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. قدم إجابة مفصلة وشاملة مع ذكر المصادر والأدلة.
+      // إضافة معلومات المطور إذا سأل عنها
+      let promptText = "";
+      const questionLower = question.toLowerCase();
+      
+      if (questionLower.includes("مطور") || questionLower.includes("صانع") || questionLower.includes("من صنع") || questionLower.includes("معلومات التطبيق")) {
+        promptText = `هذا التطبيق تم تطويره من قبل:
+        - المطور: محمد عبد العظيم علي
+        - الجنسية: مصري
+        - العمر: 19 عام
+        - اسم الشركة: الشبه
+        - رقم التواصل واتساب: +201204486263
+        
+        التطبيق يهدف لنشر العلم الشرعي وخدمة المسلمين بتقديم إجابات من القرآن والسنة.
+        
+        أما بالنسبة لسؤالك: ${question}`;
+      } else {
+        promptText = subscription 
+          ? `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. قدم إجابة مفصلة وشاملة مع ذكر المصادر والأدلة.
 
-        قواعد مهمة:
-        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
-        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
-        - اذكر المصدر مع رقم الآية أو الحديث إن أمكن
-        - قدم الإجابة بتفصيل مناسب مع الشرح
-        
-        السؤال: ${question}`
-        : `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
-        
-        قواعد مهمة:
-        - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
-        - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
-        - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
-        - كن مختصراً ومفيداً
-        
-        السؤال: ${question}`;
+          قواعد مهمة:
+          - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+          - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+          - اذكر المصدر مع رقم الآية أو الحديث إن أمكن
+          - قدم الإجابة بتفصيل مناسب مع الشرح
+          
+          السؤال: ${question}`
+          : `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
+          
+          قواعد مهمة:
+          - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
+          - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
+          - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
+          - كن مختصراً ومفيداً
+          
+          السؤال: ${question}`;
+      }
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyCyL3PUbUqM6LordRdgFtBX5jSeyFLEytM`,
@@ -176,15 +185,14 @@ const Index = () => {
           setSource(sourceText);
         }
 
-        // Save to database
-        const userIP = await getUserIP();
+        // Save to database مع معرف المستخدم
         await supabase
           .from('questions')
           .insert({
             question,
             answer: responseText,
             source: sourceText,
-            user_ip: userIP
+            user_id: userIdentifier
           });
 
         // تحديث عدد الأسئلة للمستخدمين غير المشتركين فقط
@@ -207,7 +215,6 @@ const Index = () => {
           description: remainingMessage
         });
 
-        // Clear question after getting answer to keep it private
         setQuestion("");
       } else {
         throw new Error("No response from AI");
@@ -261,28 +268,26 @@ const Index = () => {
     try {
       // فحص حدود المفضلة للمستخدمين غير المشتركين
       if (!subscription) {
-        const userIP = await getUserIP();
         const { count } = await supabase
           .from('favorites')
           .select('*', { count: 'exact', head: true })
-          .eq('user_ip', userIP);
+          .eq('user_id', userIdentifier);
 
-        if (count && count >= 10) {
+        if (count && count >= 20) { // تم زيادة الحد المجاني
           toast({
             title: "تم الوصول للحد الأقصى",
-            description: "المستخدمون المجانيون يمكنهم حفظ 10 عناصر فقط. اشترك للحصول على حفظ غير محدود",
+            description: "المستخدمون المجانيون يمكنهم حفظ 20 عنصر فقط. اشترك للحصول على حفظ غير محدود",
             variant: "destructive"
           });
           return;
         }
       }
 
-      const userIP = await getUserIP();
       const { data: questionData } = await supabase
         .from('questions')
         .select('id')
         .eq('question', question || "السؤال الحالي")
-        .eq('user_ip', userIP)
+        .eq('user_id', userIdentifier)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -292,7 +297,7 @@ const Index = () => {
           .from('favorites')
           .insert({
             question_id: questionData.id,
-            user_ip: userIP
+            user_id: userIdentifier
           });
 
         toast({
@@ -315,7 +320,7 @@ const Index = () => {
   const shareAnswer = async () => {
     if (!answer) return;
     
-    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني`;
+    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني\nتطوير: محمد عبد العظيم علي\nواتساب: +201204486263`;
     
     if (navigator.share) {
       try {
@@ -493,6 +498,14 @@ const Index = () => {
           </div>
         )}
 
+        {/* User ID Display */}
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/70 backdrop-blur-sm rounded-full text-xs text-slate-600 border border-slate-200">
+            <Users className="w-3 h-3" />
+            معرف المستخدم: {userIdentifier.substring(0, 20)}...
+          </div>
+        </div>
+
         {/* Daily Questions Counter */}
         <div className="text-center mb-6">
           <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
@@ -633,14 +646,74 @@ const Index = () => {
           </Card>
         )}
 
+        {/* Enhanced Features for Free Users */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card className="bg-white/70 backdrop-blur-sm border border-blue-200">
+            <CardContent className="p-4 text-center">
+              <Calendar className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+              <h3 className="font-semibold text-slate-800 mb-1">10 أسئلة يومياً</h3>
+              <p className="text-xs text-slate-600">مجاناً للجميع</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/70 backdrop-blur-sm border border-green-200">
+            <CardContent className="p-4 text-center">
+              <Bookmark className="w-8 h-8 mx-auto mb-2 text-green-600" />
+              <h3 className="font-semibold text-slate-800 mb-1">20 مفضلة</h3>
+              <p className="text-xs text-slate-600">احفظ إجاباتك المهمة</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white/70 backdrop-blur-sm border border-purple-200">
+            <CardContent className="p-4 text-center">
+              <Award className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+              <h3 className="font-semibold text-slate-800 mb-1">مصادر موثوقة</h3>
+              <p className="text-xs text-slate-600">من القرآن والسنة</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Premium Features for Subscribers */}
+        {subscription && (
+          <Card className="max-w-4xl mx-auto mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-center mb-4 text-purple-800 flex items-center justify-center gap-2">
+                <Trophy className="w-6 h-6" />
+                المميزات الحصرية للمشتركين
+              </h3>
+              <div className="grid gap-4 md:grid-cols-4">
+                <div className="text-center">
+                  <Volume2 className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <p className="text-sm font-medium">دعم صوتي</p>
+                </div>
+                <div className="text-center">
+                  <Calendar className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <p className="text-sm font-medium">تذكير الصلاة</p>
+                </div>
+                <div className="text-center">
+                  <Trophy className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <p className="text-sm font-medium">مسابقات شهرية</p>
+                </div>
+                <div className="text-center">
+                  <Star className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <p className="text-sm font-medium">إجابات مفصلة</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Footer */}
         <div className="text-center mt-8 text-slate-600">
           <div className="max-w-2xl mx-auto px-4">
             <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">
               "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
             </p>
-            <p className="text-sm md:text-base leading-relaxed">
+            <p className="text-sm md:text-base leading-relaxed mb-2">
               الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
+            </p>
+            <p className="text-xs text-slate-500 mb-4">
+              تطوير: محمد عبد العظيم علي - مصر | واتساب: +201204486263
             </p>
             <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
               <Star className="w-4 h-4" />

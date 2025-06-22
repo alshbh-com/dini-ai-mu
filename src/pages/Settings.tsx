@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,11 +19,24 @@ const Settings = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [userIdentifier, setUserIdentifier] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
     loadUserData();
   }, []);
+
+  const getUserIdentifier = () => {
+    const stored = localStorage.getItem('user_identifier');
+    if (stored) {
+      return stored;
+    }
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2);
+    const identifier = `user_${timestamp}_${random}`;
+    localStorage.setItem('user_identifier', identifier);
+    return identifier;
+  };
 
   const getUserIP = async () => {
     try {
@@ -38,13 +50,14 @@ const Settings = () => {
 
   const loadUserData = async () => {
     try {
-      const userIP = await getUserIP();
+      const userId = getUserIdentifier();
+      setUserIdentifier(userId);
       
       // تحميل حالة الاشتراك
       const { data: subData } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_ip', userIP)
+        .eq('user_id', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
@@ -55,7 +68,7 @@ const Settings = () => {
       const { count } = await supabase
         .from('favorites')
         .select('*', { count: 'exact', head: true })
-        .eq('user_ip', userIP);
+        .eq('user_id', userId);
 
       setFavoritesCount(count || 0);
 
@@ -81,11 +94,10 @@ const Settings = () => {
 
   const clearAllFavorites = async () => {
     try {
-      const userIP = await getUserIP();
       const { error } = await supabase
         .from('favorites')
         .delete()
-        .eq('user_ip', userIP);
+        .eq('user_id', userIdentifier);
 
       if (error) throw error;
 
@@ -146,6 +158,25 @@ const Settings = () => {
           </div>
         </div>
 
+        {/* User ID Display */}
+        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Info className="w-5 h-5 text-blue-600" />
+              معرف المستخدم
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-50 p-3 rounded-lg border">
+              <p className="text-sm text-gray-600 mb-1">معرف المستخدم الخاص بك:</p>
+              <p className="font-mono text-xs text-gray-800 break-all">{userIdentifier}</p>
+              <p className="text-xs text-gray-500 mt-2">
+                استخدم هذا المعرف عند التواصل مع الدعم لتفعيل الاشتراك
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Account Status */}
         <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
           <CardHeader>
@@ -173,6 +204,18 @@ const Settings = () => {
               <span className="text-sm text-slate-700">عدد المفضلة</span>
               <Badge variant="outline" className="border-blue-500 text-blue-600">
                 {favoritesCount}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-700">الحد اليومي</span>
+              <Badge variant="outline" className={subscription ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
+                {subscription ? "غير محدود" : "10 أسئلة"}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-700">حد المفضلة</span>
+              <Badge variant="outline" className={subscription ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
+                {subscription ? "غير محدود" : "20 عنصر"}
               </Badge>
             </div>
           </CardContent>
@@ -270,6 +313,38 @@ const Settings = () => {
           </CardContent>
         </Card>
 
+        {/* Developer Info */}
+        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Info className="w-5 h-5 text-blue-600" />
+              معلومات المطور
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-600">المطور</span>
+              <span className="font-medium text-slate-800">محمد عبد العظيم علي</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">الجنسية</span>
+              <span className="font-medium text-slate-800">مصري</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">العمر</span>
+              <span className="font-medium text-slate-800">19 عام</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">الشركة</span>
+              <span className="font-medium text-slate-800">الشبه</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">واتساب</span>
+              <span className="font-medium text-slate-800">+201204486263</span>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* App Info */}
         <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
           <CardHeader>
@@ -285,7 +360,7 @@ const Settings = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">الإصدار</span>
-              <span className="font-medium text-slate-800">1.0.0</span>
+              <span className="font-medium text-slate-800">2.0.0</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">آخر تحديث</span>
@@ -302,7 +377,7 @@ const Settings = () => {
           <Button 
             onClick={() => {
               const phoneNumber = "201204486263";
-              const message = "السلام عليكم، أحتاج مساعدة في تطبيق مُعينك الديني";
+              const message = `السلام عليكم، أحتاج مساعدة في تطبيق مُعينك الديني\nمعرف المستخدم: ${userIdentifier}`;
               const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
               window.open(whatsappURL, '_blank');
             }}
