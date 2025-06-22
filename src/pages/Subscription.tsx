@@ -6,6 +6,7 @@ import { ArrowRight, Crown, Check, MessageCircle, Heart, Star, Loader2, Gift, Aw
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getUserIdentifier } from "@/utils/userIdentifier";
 
 const Subscription = () => {
   const [subscription, setSubscription] = useState<any>(null);
@@ -19,24 +20,12 @@ const Subscription = () => {
     checkSubscriptionStatus(userId);
   }, []);
 
-  const getUserIdentifier = () => {
-    const stored = localStorage.getItem('user_identifier');
-    if (stored) {
-      return stored;
-    }
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2);
-    const identifier = `user_${timestamp}_${random}`;
-    localStorage.setItem('user_identifier', identifier);
-    return identifier;
-  };
-
   const checkSubscriptionStatus = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_ip', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
