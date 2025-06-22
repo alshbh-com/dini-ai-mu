@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [features, setFeatures] = useState<any[]>([]);
   const [newSubscriptionIP, setNewSubscriptionIP] = useState("");
+  const [activationPassword, setActivationPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -137,6 +137,15 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       return;
     }
 
+    if (activationPassword !== "01278006248") {
+      toast({
+        title: "كلمة سر خاطئة",
+        description: "كلمة السر المدخلة غير صحيحة. غير مسموح بالتفعيل",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       // تحضير جميع المميزات للتفعيل
       const allFeatures = features.reduce((acc, feature) => {
@@ -157,7 +166,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           end_date: endDate.toISOString(),
           features_enabled: allFeatures,
           last_activated: new Date().toISOString(),
-          activated_by: 'admin',
+          activated_by: 'admin_authorized',
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_ip'
@@ -166,6 +175,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       if (error) throw error;
 
       setNewSubscriptionIP("");
+      setActivationPassword("");
       loadAdminData();
       toast({
         title: "تم الإضافة",
@@ -372,23 +382,44 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
               <Crown className="w-6 h-6 text-purple-600" />
-              إدارة الاشتراكات مع المميزات
+              إدارة الاشتراكات مع المميزات (محمي)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2 mb-6">
+            <div className="bg-red-50 p-3 rounded-lg border border-red-200 mb-4">
+              <div className="flex items-start gap-2">
+                <Shield className="w-4 h-4 text-red-600 mt-0.5" />
+                <div className="text-sm text-red-800">
+                  <p className="font-semibold">تحذير أمني:</p>
+                  <p>تفعيل الاشتراك يتطلب كلمة سر محددة للحماية من التفعيل غير المصرح به.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 mb-6">
               <Input
                 placeholder="أدخل IP الجهاز"
                 value={newSubscriptionIP}
                 onChange={(e) => setNewSubscriptionIP(e.target.value)}
-                className="flex-1"
+                className="w-full"
               />
+              <div className="relative">
+                <Input
+                  type="password"
+                  placeholder="كلمة سر التفعيل المطلوبة"
+                  value={activationPassword}
+                  onChange={(e) => setActivationPassword(e.target.value)}
+                  className="w-full border-red-300 focus:border-red-500"
+                />
+                <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-500" />
+              </div>
               <Button 
                 onClick={addSubscription}
+                disabled={!newSubscriptionIP.trim() || !activationPassword}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 <Plus className="w-4 h-4 ml-1" />
-                تفعيل جميع المميزات ({features.length})
+                تفعيل جميع المميزات ({features.length}) - محمي
               </Button>
             </div>
 
