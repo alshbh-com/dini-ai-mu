@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,7 @@ const Index = () => {
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [source, setSource] = useState("");
-  const [dailyQuestions, setDailyQuestions] = useState(10); // تم زيادة الحد المجاني
+  const [dailyQuestions, setDailyQuestions] = useState(10);
   const [isRecording, setIsRecording] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -41,7 +40,7 @@ const Index = () => {
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_ip', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
         .single();
@@ -51,7 +50,7 @@ const Index = () => {
       } else {
         setSubscription(data);
         if (data) {
-          setDailyQuestions(999); // أسئلة غير محدودة للمشتركين
+          setDailyQuestions(999);
         }
       }
     } catch (error) {
@@ -102,7 +101,6 @@ const Index = () => {
       return;
     }
 
-    // فحص حدود الأسئلة للمستخدمين غير المشتركين
     if (!subscription && dailyQuestions <= 0) {
       toast({
         title: "انتهت الأسئلة المجانية",
@@ -117,7 +115,6 @@ const Index = () => {
     setSource("");
 
     try {
-      // إضافة معلومات المطور إذا سأل عنها
       let promptText = "";
       const questionLower = question.toLowerCase();
       
@@ -185,17 +182,16 @@ const Index = () => {
           setSource(sourceText);
         }
 
-        // Save to database مع معرف المستخدم
+        // Save to database
         await supabase
           .from('questions')
           .insert({
             question,
             answer: responseText,
             source: sourceText,
-            user_id: userIdentifier
+            user_ip: userIdentifier
           });
 
-        // تحديث عدد الأسئلة للمستخدمين غير المشتركين فقط
         if (!subscription) {
           const newCount = dailyQuestions - 1;
           setDailyQuestions(newCount);
@@ -203,7 +199,6 @@ const Index = () => {
           localStorage.setItem("dailyQuestions", JSON.stringify({ date: today, count: newCount }));
         }
 
-        // Update stats
         await updateStats();
 
         const remainingMessage = subscription 
@@ -266,14 +261,13 @@ const Index = () => {
     if (!answer) return;
     
     try {
-      // فحص حدود المفضلة للمستخدمين غير المشتركين
       if (!subscription) {
         const { count } = await supabase
           .from('favorites')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', userIdentifier);
+          .eq('user_ip', userIdentifier);
 
-        if (count && count >= 20) { // تم زيادة الحد المجاني
+        if (count && count >= 20) {
           toast({
             title: "تم الوصول للحد الأقصى",
             description: "المستخدمون المجانيون يمكنهم حفظ 20 عنصر فقط. اشترك للحصول على حفظ غير محدود",
@@ -287,7 +281,7 @@ const Index = () => {
         .from('questions')
         .select('id')
         .eq('question', question || "السؤال الحالي")
-        .eq('user_id', userIdentifier)
+        .eq('user_ip', userIdentifier)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -297,7 +291,7 @@ const Index = () => {
           .from('favorites')
           .insert({
             question_id: questionData.id,
-            user_id: userIdentifier
+            user_ip: userIdentifier
           });
 
         toast({
@@ -320,7 +314,7 @@ const Index = () => {
   const shareAnswer = async () => {
     if (!answer) return;
     
-    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني\nتطوير: محمد عبد العظيم علي\nواتساب: +201204486263`;
+    const shareText = `السؤال: ${question || "سؤال مخفي"}\n\nالإجابة: ${answer}\n\n${source}\n\nمن تطبيق: مُعينك الديني\nتطوير: محمد عبد العظيم علي\nواتساب: +201204486263\nمعرف المستخدم: ${userIdentifier}`;
     
     if (navigator.share) {
       try {
@@ -344,7 +338,6 @@ const Index = () => {
     }
   };
 
-  // دالة تشغيل الصوت للمشتركين
   const playAnswerAudio = () => {
     if (!subscription) {
       toast({
@@ -391,15 +384,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Header with Duaa */}
       <DuaaHeader />
       
-      {/* Prayer Reminder for Premium Users */}
       {subscription && <PrayerReminder />}
 
-      {/* Navigation */}
       <div className="container mx-auto px-3 py-4">
-        {/* Mobile Header */}
+        
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -418,7 +408,6 @@ const Index = () => {
             </div>
           </div>
           
-          {/* Mobile Menu Button */}
           <Button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             variant="outline"
@@ -428,7 +417,6 @@ const Index = () => {
             {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </Button>
 
-          {/* Desktop Navigation */}
           <div className="hidden md:flex gap-2">
             <Button
               onClick={() => setShowAdminPanel(true)}
@@ -460,7 +448,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation Menu */}
         {showMobileMenu && (
           <div className="md:hidden mb-6 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-lg">
             <div className="grid grid-cols-2 gap-3">
@@ -498,7 +485,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* User ID Display */}
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/70 backdrop-blur-sm rounded-full text-xs text-slate-600 border border-slate-200">
             <Users className="w-3 h-3" />
@@ -506,7 +492,6 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Daily Questions Counter */}
         <div className="text-center mb-6">
           <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
             subscription 
@@ -519,7 +504,7 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Main Question Card */}
+        
         <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
           <CardContent className="p-4 md:p-8">
             <div className="text-center mb-6">
@@ -581,7 +566,6 @@ const Index = () => {
           </CardContent>
         </Card>
 
-        {/* Answer Card */}
         {answer && (
           <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
             <CardContent className="p-4 md:p-8">
@@ -646,7 +630,7 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Enhanced Features for Free Users */}
+        
         <div className="grid gap-4 md:grid-cols-3 mb-6">
           <Card className="bg-white/70 backdrop-blur-sm border border-blue-200">
             <CardContent className="p-4 text-center">
@@ -673,7 +657,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Premium Features for Subscribers */}
         {subscription && (
           <Card className="max-w-4xl mx-auto mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
             <CardContent className="p-6">
@@ -703,7 +686,6 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Footer */}
         <div className="text-center mt-8 text-slate-600">
           <div className="max-w-2xl mx-auto px-4">
             <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">

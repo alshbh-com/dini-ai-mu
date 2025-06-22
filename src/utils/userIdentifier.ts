@@ -10,9 +10,9 @@ export const generateUserIdentifier = (): string => {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2);
   const userAgent = navigator.userAgent.substring(0, 20);
-  const screen = `${screen.width}x${screen.height}`;
+  const screenInfo = `${window.screen.width}x${window.screen.height}`;
   
-  const identifier = `user_${timestamp}_${random}_${btoa(userAgent + screen).substring(0, 10)}`;
+  const identifier = `user_${timestamp}_${random}_${btoa(userAgent + screenInfo).substring(0, 10)}`;
   
   localStorage.setItem('user_identifier', identifier);
   return identifier;
