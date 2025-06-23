@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,7 @@ const Subscription = () => {
 
   const contactWhatsApp = () => {
     const phoneNumber = "201204486263";
-    const message = `السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والحصول على جميع المميزات الـ30\n\nمعرف المستخدم: ${userIdentifier}`;
+    const message = `السلام عليكم، أريد الاشتراك في تطبيق مُعينك الديني والحصول على جميع المميزات الـ30 بمساهمة شهرية 2$\n\nمعرف المستخدم: ${userIdentifier}`;
     const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappURL, '_blank');
   };
@@ -133,7 +132,7 @@ const Subscription = () => {
               <p className="text-sm text-blue-700 mb-2">معرف المستخدم للاشتراك:</p>
               <p className="font-mono text-sm text-blue-800 break-all">{userIdentifier}</p>
               <p className="text-xs text-blue-600 mt-2">
-                أرسل هذا المعرف عبر واتساب لتفعيل اشتراكك
+                أرسل هذا المعرف عبر واتساب لتفعيل اشتراكك بمساهمة شهرية 2$
               </p>
             </div>
           </CardContent>
@@ -149,7 +148,7 @@ const Subscription = () => {
                 🕌 <strong>الهدف الأساسي:</strong> نشر العلم الشرعي وكسب الحسنات والأجر من الله عز وجل
               </p>
               <p className="text-sm leading-relaxed">
-                💚 <strong>المساهمة المالية:</strong> هي فقط للمساعدة في تغطية تكاليف الخادم والـ API وتطوير التطبيق
+                💚 <strong>المساهمة المالية:</strong> فقط 2$ شهرياً للمساعدة في تغطية تكاليف الخادم والـ API وتطوير التطبيق
               </p>
               <p className="text-sm leading-relaxed">
                 🎁 <strong>المسابقات الشهرية:</strong> للمساهمين فقط كنوع من التشجيع والتقدير
@@ -199,7 +198,7 @@ const Subscription = () => {
               <div className="text-2xl sm:text-3xl font-bold text-slate-800 mt-2">
                 مجاناً
               </div>
-              <p className="text-slate-600 text-sm">للجميع</p>
+              <p className="text-slate-600 text-sm">للجميع (بعد انتهاء التجربة المجانية)</p>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3 mb-6">
@@ -233,7 +232,7 @@ const Subscription = () => {
                 المساهمة الشهرية
               </CardTitle>
               <div className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-2">
-                مساهمة شهرية
+                2$ شهرياً
               </div>
               <p className="text-slate-600 text-sm">30 ميزة حصرية ومتقدمة</p>
             </CardHeader>
@@ -252,7 +251,7 @@ const Subscription = () => {
                 disabled={subscription}
               >
                 <MessageCircle className="w-4 h-4 ml-2" />
-                {subscription ? "مساهم بالفعل" : "ساهم عبر واتساب"}
+                {subscription ? "مساهم بالفعل" : "ساهم ب 2$ عبر واتساب"}
               </Button>
             </CardContent>
           </Card>
@@ -269,7 +268,7 @@ const Subscription = () => {
             <CardContent className="p-6 text-center">
               <Gift className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-purple-600" />
               <h3 className="text-lg sm:text-xl font-amiri text-slate-800 mb-4">
-                المسابقات الشهرية للمساهمين
+                المسابقات الشهرية للمساهمين (2$ شهرياً)
               </h3>
               <div className="grid gap-4 text-right">
                 <div className="bg-white p-4 rounded-lg shadow-sm">
@@ -301,7 +300,7 @@ const Subscription = () => {
             <CardContent className="p-6 text-center">
               <Star className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-indigo-600" />
               <h3 className="text-lg sm:text-xl font-amiri text-slate-800 mb-4">
-                لماذا المساهمة؟
+                لماذا المساهمة بـ 2$ شهرياً؟
               </h3>
               <div className="grid gap-4 sm:gap-6 text-right">
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -338,7 +337,7 @@ const Subscription = () => {
         {/* Contact Info */}
         <div className="mt-8 text-center">
           <p className="text-slate-600 mb-4 text-sm">
-            للمساهمة أو الاستفسار عن المسابقات، تواصل معنا عبر واتساب
+            للمساهمة بـ 2$ شهرياً أو الاستفسار عن المسابقات، تواصل معنا عبر واتساب
           </p>
           <div className="space-y-2">
             <Button 
