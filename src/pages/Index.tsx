@@ -12,6 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import AdminPanel from "@/components/AdminPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserIdentifier } from "@/utils/userIdentifier";
+import FreeTrialManager from "@/components/FreeTrialManager";
 
 const Index = () => {
   const [question, setQuestion] = useState("");
@@ -50,7 +51,22 @@ const Index = () => {
       } else {
         setSubscription(data);
         if (data) {
-          setDailyQuestions(999);
+          // تحديد نوع الاشتراك في العرض
+          if (data.subscription_type === 'free_trial') {
+            const endDate = new Date(data.end_date);
+            const now = new Date();
+            const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            
+            if (daysLeft > 0) {
+              setDailyQuestions(999);
+            } else {
+              // انتهت فترة التجربة المجانية
+              setSubscription(null);
+              setDailyQuestions(10);
+            }
+          } else {
+            setDailyQuestions(999);
+          }
         }
       }
     } catch (error) {
@@ -382,8 +398,27 @@ const Index = () => {
     );
   }
 
+  const getSubscriptionStatus = () => {
+    if (!subscription) return "غير مشترك";
+    
+    if (subscription.subscription_type === 'free_trial') {
+      const endDate = new Date(subscription.end_date);
+      const now = new Date();
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysLeft > 0) {
+        return `تجربة مجانية - ${daysLeft} يوم متبقي`;
+      } else {
+        return "انتهت التجربة المجانية";
+      }
+    }
+    
+    return "مشترك مميز";
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <FreeTrialManager />
       <DuaaHeader />
       
       {subscription && <PrayerReminder />}
@@ -400,9 +435,13 @@ const Index = () => {
               <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">اسأل في الدين</h1>
               <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
               {subscription && (
-                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs mt-1">
+                <Badge className={`text-xs mt-1 ${
+                  subscription.subscription_type === 'free_trial' 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                    : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                }`}>
                   <Crown className="w-3 h-3 ml-1" />
-                  مشترك مميز
+                  {getSubscriptionStatus()}
                 </Badge>
               )}
             </div>
@@ -495,11 +534,19 @@ const Index = () => {
         <div className="text-center mb-6">
           <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
             subscription 
-              ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+              ? subscription.subscription_type === 'free_trial'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
               : 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
           }`}>
             {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
-            {subscription ? "أسئلة غير محدودة - مشترك مميز" : `الأسئلة المتبقية اليوم: ${dailyQuestions}`}
+            {subscription ? 
+              (subscription.subscription_type === 'free_trial' ? 
+                `أسئلة غير محدودة - ${getSubscriptionStatus()}` : 
+                "أسئلة غير محدودة - مشترك مميز"
+              ) : 
+              `الأسئلة المتبقية اليوم: ${dailyQuestions}`
+            }
             <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
           </div>
         </div>

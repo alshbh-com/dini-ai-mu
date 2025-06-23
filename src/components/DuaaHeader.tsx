@@ -24,7 +24,7 @@ const DuaaHeader = () => {
         </div>
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-2xl mx-auto border border-white/20">
           <p className="font-amiri text-xl md:text-2xl leading-relaxed text-white mb-2">
-            اللهم ادخل محمد عبد العظيم ومحمد حافظ الجنة بغير حساب ولا عذاب
+            اللهم ادخل محمد عبد العظيم ومحمد حافظ ومحمد علي الجنة بغير حساب ولا عذاب
           </p>
           <div className="flex items-center justify-center gap-2 text-blue-200">
             <Sparkles className="w-5 h-5" />

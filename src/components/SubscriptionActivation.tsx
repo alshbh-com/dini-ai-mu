@@ -50,7 +50,7 @@ const SubscriptionActivation = ({ onActivationSuccess }: SubscriptionActivationP
         return acc;
       }, {} as Record<string, boolean>) || {};
 
-      // إنشاء أو تحديث الاشتراك
+      // إنشاء أو تحديث الاشتراك المدفوع (ليس تجربة مجانية)
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 1);
 
@@ -58,7 +58,7 @@ const SubscriptionActivation = ({ onActivationSuccess }: SubscriptionActivationP
         .from('subscriptions')
         .upsert({
           user_ip: userIdToActivate.trim(),
-          subscription_type: 'monthly',
+          subscription_type: 'monthly', // اشتراك مدفوع
           is_active: true,
           start_date: new Date().toISOString(),
           end_date: endDate.toISOString(),
@@ -82,14 +82,14 @@ const SubscriptionActivation = ({ onActivationSuccess }: SubscriptionActivationP
           subscription_id: subscription.id,
           activated_features: allFeatures,
           activated_by: 'admin_authorized',
-          notes: `تفعيل جميع المميزات الـ30 للمشترك - تم التحقق من كلمة السر`
+          notes: `تفعيل اشتراك مدفوع - تم التحقق من كلمة السر - تحويل من تجربة مجانية إلى اشتراك مدفوع`
         });
 
       if (activationError) throw activationError;
 
       toast({
         title: "✅ تم التفعيل بنجاح",
-        description: `تم تفعيل جميع المميزات الـ30 للمستخدم: ${userIdToActivate}`,
+        description: `تم تفعيل الاشتراك المدفوع للمستخدم: ${userIdToActivate}`,
       });
 
       setUserIdToActivate("");
@@ -112,17 +112,27 @@ const SubscriptionActivation = ({ onActivationSuccess }: SubscriptionActivationP
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-green-800">
           <Crown className="w-6 h-6" />
-          تفعيل اشتراك مميز (محمي)
+          تفعيل اشتراك مدفوع (محمي)
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <p className="font-semibold">ملاحظة:</p>
+                <p>جميع المستخدمين الجدد يحصلون على تجربة مجانية لمدة 15 يوم تلقائياً. هذا التفعيل للاشتراك المدفوع بعد انتهاء التجربة المجانية.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-red-50 p-4 rounded-lg border border-red-200">
             <div className="flex items-start gap-2">
               <Lock className="w-5 h-5 text-red-600 mt-0.5" />
               <div className="text-sm text-red-800">
                 <p className="font-semibold">تحذير أمني:</p>
-                <p>تفعيل الاشتراك يتطلب كلمة سر محددة. غير مسموح للعملاء بالتفعيل الذاتي.</p>
+                <p>تفعيل الاشتراك المدفوع يتطلب كلمة سر محددة. غير مسموح للعملاء بالتفعيل الذاتي.</p>
               </div>
             </div>
           </div>
@@ -174,8 +184,10 @@ const SubscriptionActivation = ({ onActivationSuccess }: SubscriptionActivationP
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
               <div className="text-sm text-blue-800">
-                <p className="font-semibold">ملاحظة هامة:</p>
-                <p>يتطلب إدخال كلمة سر صحيحة لإتمام التفعيل. هذا يضمن عدم قدرة العملاء على التفعيل الذاتي.</p>
+                <p className="font-semibold">نظام التجربة المجانية:</p>
+                <p>• كل مستخدم جديد يحصل على 15 يوم مجاناً تلقائياً</p>
+                <p>• بعد انتهاء الـ15 يوم، يعود للنسخة المجانية المحدودة</p>
+                <p>• هذا التفعيل للاشتراك المدفوع الكامل</p>
               </div>
             </div>
           </div>
