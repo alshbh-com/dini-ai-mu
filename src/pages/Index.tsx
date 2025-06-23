@@ -38,35 +38,46 @@ const Index = () => {
 
   const checkSubscriptionStatus = async (userId: string) => {
     try {
+      console.log("التحقق من حالة الاشتراك للمستخدم:", userId);
+      
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_ip', userId)
         .eq('is_active', true)
         .gte('end_date', new Date().toISOString())
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error("Error checking subscription:", error);
       } else {
+        console.log("نتيجة التحقق من الاشتراك:", data);
         setSubscription(data);
+        
         if (data) {
-          // تحديد نوع الاشتراك في العرض
+          // تحديد نوع الاشتراك والأسئلة المتاحة
           if (data.subscription_type === 'free_trial') {
             const endDate = new Date(data.end_date);
             const now = new Date();
             const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
             
+            console.log(`التجربة المجانية - أيام متبقية: ${daysLeft}`);
+            
             if (daysLeft > 0) {
-              setDailyQuestions(999);
+              setDailyQuestions(999); // أسئلة غير محدودة للتجربة المجانية
             } else {
               // انتهت فترة التجربة المجانية
               setSubscription(null);
               setDailyQuestions(10);
+              console.log("انتهت فترة التجربة المجانية - العودة للوضع المجاني");
             }
           } else {
-            setDailyQuestions(999);
+            setDailyQuestions(999); // أسئلة غير محدودة للمشتركين المدفوعين
+            console.log("اشتراك مدفوع نشط");
           }
+        } else {
+          console.log("لا يوجد اشتراك نشط");
+          setDailyQuestions(10);
         }
       }
     } catch (error) {
@@ -399,7 +410,7 @@ const Index = () => {
   }
 
   const getSubscriptionStatus = () => {
-    if (!subscription) return "غير مشترك";
+    if (!subscription) return "مستخدم جديد - احصل على 15 يوم مجاناً!";
     
     if (subscription.subscription_type === 'free_trial') {
       const endDate = new Date(subscription.end_date);
@@ -407,13 +418,31 @@ const Index = () => {
       const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
       if (daysLeft > 0) {
-        return `تجربة مجانية - ${daysLeft} يوم متبقي`;
+        return `🎁 تجربة مجانية - ${daysLeft} يوم متبقي`;
       } else {
         return "انتهت التجربة المجانية";
       }
     }
     
-    return "مشترك مميز";
+    return "مشترك مميز 👑";
+  };
+
+  const getSubscriptionBadgeColor = () => {
+    if (!subscription) return "bg-gradient-to-r from-blue-500 to-cyan-500 text-white";
+    
+    if (subscription.subscription_type === 'free_trial') {
+      const endDate = new Date(subscription.end_date);
+      const now = new Date();
+      const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysLeft > 0) {
+        return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
+      } else {
+        return 'bg-gradient-to-r from-gray-500 to-slate-500 text-white';
+      }
+    }
+    
+    return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
   };
 
   return (
@@ -434,16 +463,10 @@ const Index = () => {
             <div>
               <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">اسأل في الدين</h1>
               <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
-              {subscription && (
-                <Badge className={`text-xs mt-1 ${
-                  subscription.subscription_type === 'free_trial' 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                }`}>
-                  <Crown className="w-3 h-3 ml-1" />
-                  {getSubscriptionStatus()}
-                </Badge>
-              )}
+              <Badge className={`text-xs mt-1 ${getSubscriptionBadgeColor()}`}>
+                <Crown className="w-3 h-3 ml-1" />
+                {getSubscriptionStatus()}
+              </Badge>
             </div>
           </div>
           
@@ -532,13 +555,7 @@ const Index = () => {
         </div>
 
         <div className="text-center mb-6">
-          <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${
-            subscription 
-              ? subscription.subscription_type === 'free_trial'
-                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-              : 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
-          }`}>
+          <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${getSubscriptionBadgeColor()}`}>
             {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
             {subscription ? 
               (subscription.subscription_type === 'free_trial' ? 
