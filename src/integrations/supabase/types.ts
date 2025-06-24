@@ -9,44 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      answer_feedback: {
-        Row: {
-          answer_text: string | null
-          comment: string | null
-          created_at: string
-          id: string
-          is_helpful: boolean
-          question_id: string | null
-          user_ip: string
-        }
-        Insert: {
-          answer_text?: string | null
-          comment?: string | null
-          created_at?: string
-          id?: string
-          is_helpful: boolean
-          question_id?: string | null
-          user_ip: string
-        }
-        Update: {
-          answer_text?: string | null
-          comment?: string | null
-          created_at?: string
-          id?: string
-          is_helpful?: boolean
-          question_id?: string | null
-          user_ip?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "answer_feedback_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       app_settings: {
         Row: {
           id: string
@@ -65,69 +27,6 @@ export type Database = {
           setting_key?: string
           setting_value?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      daily_quiz_answers: {
-        Row: {
-          created_at: string
-          date: string
-          id: string
-          is_correct: boolean
-          question_id: string
-          selected_answer: number
-          user_ip: string
-        }
-        Insert: {
-          created_at?: string
-          date?: string
-          id?: string
-          is_correct: boolean
-          question_id: string
-          selected_answer: number
-          user_ip: string
-        }
-        Update: {
-          created_at?: string
-          date?: string
-          id?: string
-          is_correct?: boolean
-          question_id?: string
-          selected_answer?: number
-          user_ip?: string
-        }
-        Relationships: []
-      }
-      daily_quiz_questions: {
-        Row: {
-          correct_answer: number
-          created_at: string
-          date: string
-          explanation: string
-          id: string
-          options: Json
-          question: string
-          source: string
-        }
-        Insert: {
-          correct_answer: number
-          created_at?: string
-          date?: string
-          explanation: string
-          id?: string
-          options: Json
-          question: string
-          source: string
-        }
-        Update: {
-          correct_answer?: number
-          created_at?: string
-          date?: string
-          explanation?: string
-          id?: string
-          options?: Json
-          question?: string
-          source?: string
         }
         Relationships: []
       }

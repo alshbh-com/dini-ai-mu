@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, X, Trash2, Plus, Crown, Star, CheckCircle, Calendar } from "lucide-react";
+import { Shield, Users, MessageSquare, TrendingUp, Eye, EyeOff, X, Trash2, Plus, Crown, Star, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,15 +28,6 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [newSubscriptionIP, setNewSubscriptionIP] = useState("");
   const [activationPassword, setActivationPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [dailyQuizQuestions, setDailyQuizQuestions] = useState<any[]>([]);
-  const [newQuizQuestion, setNewQuizQuestion] = useState({
-    question: "",
-    options: ["", "", "", ""],
-    correct_answer: 0,
-    explanation: "",
-    source: "",
-    date: new Date().toISOString().split('T')[0]
-  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -120,13 +111,6 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
         .eq('is_premium', true)
         .order('created_at', { ascending: true });
 
-      // Load daily quiz questions
-      const { data: quizQuestions } = await supabase
-        .from('daily_quiz_questions')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(10);
-
       setStats({
         totalQuestions: questionsCount || 0,
         totalFavorites: favoritesCount || 0,
@@ -138,7 +122,6 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       setQuestions(recentQuestions || []);
       setSubscriptions(activeSubscriptions || []);
       setFeatures(premiumFeatures || []);
-      setDailyQuizQuestions(quizQuestions || []);
     } catch (error) {
       console.error("Error loading admin data:", error);
     }
@@ -247,78 +230,6 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       loadAdminData();
     } catch (error) {
       console.error("Error deleting question:", error);
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ في حذف السؤال",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const addDailyQuizQuestion = async () => {
-    if (!newQuizQuestion.question.trim() || newQuizQuestion.options.some(opt => !opt.trim())) {
-      toast({
-        title: "خطأ",
-        description: "جميع الحقول مطلوبة",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('daily_quiz_questions')
-        .insert({
-          question: newQuizQuestion.question,
-          options: JSON.stringify(newQuizQuestion.options),
-          correct_answer: newQuizQuestion.correct_answer,
-          explanation: newQuizQuestion.explanation,
-          source: newQuizQuestion.source,
-          date: newQuizQuestion.date
-        });
-
-      if (error) throw error;
-
-      setNewQuizQuestion({
-        question: "",
-        options: ["", "", "", ""],
-        correct_answer: 0,
-        explanation: "",
-        source: "",
-        date: new Date().toISOString().split('T')[0]
-      });
-
-      loadAdminData();
-      toast({
-        title: "تم الإضافة",
-        description: "تم إضافة السؤال اليومي بنجاح"
-      });
-    } catch (error) {
-      console.error("Error adding daily quiz question:", error);
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ في إضافة السؤال",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const deleteDailyQuizQuestion = async (questionId: string) => {
-    try {
-      const { error } = await supabase
-        .from('daily_quiz_questions')
-        .delete()
-        .eq('id', questionId);
-
-      if (error) throw error;
-
-      loadAdminData();
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف السؤال اليومي بنجاح"
-      });
-    } catch (error) {
-      console.error("Error deleting daily quiz question:", error);
       toast({
         title: "خطأ",
         description: "حدث خطأ في حذف السؤال",
@@ -465,115 +376,6 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
             </CardContent>
           </Card>
         </div>
-
-        {/* Daily Quiz Management */}
-        <Card className="shadow-lg border-slate-200 bg-white/80 mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Calendar className="w-6 h-6 text-green-600" />
-              إدارة الأسئلة اليومية
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 mb-6">
-              <Input
-                placeholder="نص السؤال"
-                value={newQuizQuestion.question}
-                onChange={(e) => setNewQuizQuestion({...newQuizQuestion, question: e.target.value})}
-              />
-              
-              <div className="grid grid-cols-2 gap-2">
-                {newQuizQuestion.options.map((option, index) => (
-                  <Input
-                    key={index}
-                    placeholder={`الخيار ${index + 1}`}
-                    value={option}
-                    onChange={(e) => {
-                      const newOptions = [...newQuizQuestion.options];
-                      newOptions[index] = e.target.value;
-                      setNewQuizQuestion({...newQuizQuestion, options: newOptions});
-                    }}
-                  />
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-1 block">الإجابة الصحيحة:</label>
-                  <select
-                    value={newQuizQuestion.correct_answer}
-                    onChange={(e) => setNewQuizQuestion({...newQuizQuestion, correct_answer: parseInt(e.target.value)})}
-                    className="w-full p-2 border border-slate-300 rounded-md"
-                  >
-                    {newQuizQuestion.options.map((option, index) => (
-                      <option key={index} value={index}>
-                        الخيار {index + 1}: {option.slice(0, 20)}...
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <Input
-                  type="date"
-                  value={newQuizQuestion.date}
-                  onChange={(e) => setNewQuizQuestion({...newQuizQuestion, date: e.target.value})}
-                />
-              </div>
-
-              <Input
-                placeholder="الشرح والتفسير"
-                value={newQuizQuestion.explanation}
-                onChange={(e) => setNewQuizQuestion({...newQuizQuestion, explanation: e.target.value})}
-              />
-
-              <Input
-                placeholder="المصدر"
-                value={newQuizQuestion.source}
-                onChange={(e) => setNewQuizQuestion({...newQuizQuestion, source: e.target.value})}
-              />
-
-              <Button
-                onClick={addDailyQuizQuestion}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Plus className="w-4 h-4 ml-1" />
-                إضافة سؤال يومي
-              </Button>
-            </div>
-
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {dailyQuizQuestions.map((quiz) => (
-                <div key={quiz.id} className="p-3 border border-slate-200 rounded-lg bg-slate-50">
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-800 mb-1">{quiz.question}</p>
-                      <p className="text-sm text-slate-600 mb-2">{quiz.explanation}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {new Date(quiz.date).toLocaleDateString('ar-SA')}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          المصدر: {quiz.source}
-                        </Badge>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => deleteDailyQuizQuestion(quiz.id)}
-                      variant="outline"
-                      size="sm"
-                      className="border-red-500 text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              {dailyQuizQuestions.length === 0 && (
-                <p className="text-center text-slate-500 py-8">لا توجد أسئلة يومية</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Subscription Management */}
         <Card className="shadow-lg border-slate-200 bg-white/80 mb-8">
