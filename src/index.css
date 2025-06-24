@@ -26,15 +26,15 @@
     --muted: 232 228 222;
     --muted-foreground: 107 114 128;
 
-    --accent: 212 175 55;
-    --accent-foreground: 27 50 9;
+    --accent: 59 130 246;
+    --accent-foreground: 255 255 255;
 
     --destructive: 239 68 68;
     --destructive-foreground: 248 246 240;
 
     --border: 229 231 235;
     --input: 229 231 235;
-    --ring: 212 175 55;
+    --ring: 59 130 246;
 
     --radius: 0.75rem;
 
@@ -45,7 +45,7 @@
     --sidebar-accent: 232 228 222;
     --sidebar-accent-foreground: 27 50 9;
     --sidebar-border: 229 231 235;
-    --sidebar-ring: 212 175 55;
+    --sidebar-ring: 59 130 246;
   }
 }
 
@@ -57,6 +57,19 @@
   body {
     @apply bg-islamic-cream text-islamic-green font-cairo;
     direction: rtl;
+    background-image: 
+      radial-gradient(circle at 20% 50%, rgba(45, 80, 22, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(45, 80, 22, 0.05) 0%, transparent 50%),
+      linear-gradient(135deg, 
+        rgba(248, 246, 240, 0.95) 0%, 
+        rgba(232, 228, 222, 0.9) 50%, 
+        rgba(248, 246, 240, 0.95) 100%
+      ),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%232D5016' fill-opacity='0.03'%3E%3Cpath d='M30 30c0-16.569 13.431-30 30-30v60c-16.569 0-30-13.431-30-30zM0 30c0-16.569 13.431-30 30-30v60C13.431 60 0 46.569 0 30z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-attachment: fixed;
+    background-size: cover, cover, cover, cover, 60px 60px;
+    background-position: center, center, center, center, 0 0;
   }
 
   .font-amiri {
@@ -70,12 +83,46 @@
   /* Islamic patterns and decorations */
   .islamic-pattern {
     background-image: 
-      radial-gradient(circle at 1px 1px, rgba(212,175,55,0.15) 1px, transparent 0);
+      radial-gradient(circle at 1px 1px, rgba(59,130,246,0.15) 1px, transparent 0);
     background-size: 20px 20px;
+  }
+
+  .islamic-geometric-pattern {
+    background-image: 
+      repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(45,80,22,0.05) 10px, rgba(45,80,22,0.05) 20px),
+      repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(59,130,246,0.03) 10px, rgba(59,130,246,0.03) 20px);
   }
 
   .prayer-reminder {
     animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  /* Enhanced Islamic decoration */
+  .islamic-border {
+    border-image: linear-gradient(45deg, 
+      rgba(45,80,22,0.3), 
+      rgba(59,130,246,0.2), 
+      rgba(45,80,22,0.3)
+    ) 1;
+  }
+
+  /* Islamic star pattern overlay */
+  .islamic-stars::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      radial-gradient(2px 2px at 20px 30px, rgba(45,80,22,0.1), transparent),
+      radial-gradient(2px 2px at 40px 70px, rgba(59,130,246,0.08), transparent),
+      radial-gradient(1px 1px at 90px 40px, rgba(45,80,22,0.05), transparent),
+      radial-gradient(1px 1px at 130px 80px, rgba(59,130,246,0.04), transparent);
+    background-repeat: repeat;
+    background-size: 150px 150px, 180px 180px, 120px 120px, 160px 160px;
+    pointer-events: none;
+    z-index: -1;
   }
 
   /* Scrollbar styling */
@@ -84,15 +131,15 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: rgba(248,246,240,0.8);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #D4AF37;
+    background: #3B82F6;
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #B8941F;
+    background: #2563EB;
   }
 }
