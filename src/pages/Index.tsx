@@ -659,24 +659,7 @@ const Index = () => {
             </div>
           </div>
 
-          <DailyQuiz />
-          
-          <SituationalGuidance 
-            onSituationSubmit={(situation) => askQuestion(`موقف يحتاج إرشاد شرعي: ${situation}`)}
-            isLoading={isLoading}
-          />
-          
-          <ResponseStyleSelector 
-            selectedStyle={responseStyle}
-            onStyleChange={setResponseStyle}
-          />
-          
-          <VoiceSearch 
-            onTranscription={handleVoiceTranscription}
-            isRecording={isRecording}
-            setIsRecording={setIsRecording}
-          />
-          
+          {/* MOVED: Question Box to the top */}
           <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
             <CardContent className="p-4 md:p-8">
               <div className="text-center mb-6">
@@ -713,7 +696,7 @@ const Index = () => {
                   <Button
                     onClick={() => askQuestion()}
                     disabled={isLoading || (!subscription && dailyQuestions <= 0)}
-                    className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
+                    className="bg-gradient-to-r from-black to-gray-800 hover:from-gray-800 hover:to-black text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
                   >
                     {isLoading ? (
                       <LoadingSpinner />
@@ -738,6 +721,24 @@ const Index = () => {
             </CardContent>
           </Card>
 
+          <DailyQuiz />
+          
+          <SituationalGuidance 
+            onSituationSubmit={(situation) => askQuestion(`موقف يحتاج إرشاد شرعي: ${situation}`)}
+            isLoading={isLoading}
+          />
+          
+          <ResponseStyleSelector 
+            selectedStyle={responseStyle}
+            onStyleChange={setResponseStyle}
+          />
+          
+          <VoiceSearch 
+            onTranscription={handleVoiceTranscription}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+          />
+          
           {answer && (
             <>
               <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">

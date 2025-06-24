@@ -1,369 +1,336 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Settings as SettingsIcon, Bell, Palette, Shield, Info, Trash2, Save } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Settings as SettingsIcon, Moon, Sun, Bell, BellOff, Upload, Image, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getUserIdentifier } from "@/utils/userIdentifier";
 
 const Settings = () => {
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: false,
-    autoShare: false,
-    language: 'ar'
-  });
-  const [subscription, setSubscription] = useState<any>(null);
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [userIdentifier, setUserIdentifier] = useState("");
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [dailyQuestionLimit, setDailyQuestionLimit] = useState("10");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [currentBackground, setCurrentBackground] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadUserData();
+    loadSettings();
   }, []);
 
-  const loadUserData = async () => {
+  const loadSettings = async () => {
     try {
-      const userId = getUserIdentifier();
-      setUserIdentifier(userId);
-      
-      // تحميل حالة الاشتراك
-      const { data: subData } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_ip', userId)
-        .eq('is_active', true)
-        .gte('end_date', new Date().toISOString())
-        .single();
+      // Load current settings
+      const { data: limitData } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'daily_question_limit')
+        .maybeSingle();
 
-      setSubscription(subData);
+      if (limitData) {
+        setDailyQuestionLimit(limitData.setting_value);
+      }
 
-      // تحميل عدد المفضلة
-      const { count } = await supabase
-        .from('favorites')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_ip', userId);
+      const { data: passwordData } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'admin_password')
+        .maybeSingle();
 
-      setFavoritesCount(count || 0);
+      if (passwordData) {
+        setAdminPassword(passwordData.setting_value);
+      }
 
-      // تحميل الإعدادات المحفوظة من localStorage
-      const savedSettings = localStorage.getItem('app_settings');
-      if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+      const { data: backgroundData } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'background_image')
+        .maybeSingle();
+
+      if (backgroundData) {
+        setCurrentBackground(backgroundData.setting_value);
       }
     } catch (error) {
-      console.error("Error loading user data:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error loading settings:", error);
     }
   };
 
-  const saveSettings = () => {
-    localStorage.setItem('app_settings', JSON.stringify(settings));
-    toast({
-      title: "تم الحفظ",
-      description: "تم حفظ الإعدادات بنجاح"
-    });
-  };
+  const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const clearAllFavorites = async () => {
-    try {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_ip', userIdentifier);
-
-      if (error) throw error;
-
-      setFavoritesCount(0);
-      toast({
-        title: "تم الحذف",
-        description: "تم حذف جميع المفضلة بنجاح"
-      });
-    } catch (error) {
-      console.error("Error clearing favorites:", error);
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
       toast({
         title: "خطأ",
-        description: "حدث خطأ في حذف المفضلة",
+        description: "يرجى اختيار ملف صورة صالح",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "خطأ",
+        description: "حجم الملف كبير جداً. الحد الأقصى 5 ميجابايت",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Convert to base64 or upload to a service
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageUrl = e.target?.result as string;
+        
+        // Save to database
+        await supabase
+          .from('app_settings')
+          .upsert({
+            setting_key: 'background_image',
+            setting_value: imageUrl
+          });
+
+        setCurrentBackground(imageUrl);
+        toast({
+          title: "تم الرفع",
+          description: "تم رفع صورة الخلفية بنجاح"
+        });
+      };
+      
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading background:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ في رفع الصورة",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeBackground = async () => {
+    try {
+      await supabase
+        .from('app_settings')
+        .upsert({
+          setting_key: 'background_image',
+          setting_value: ''
+        });
+
+      setCurrentBackground("");
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف صورة الخلفية"
+      });
+    } catch (error) {
+      console.error("Error removing background:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ في حذف الصورة",
         variant: "destructive"
       });
     }
   };
 
-  const clearAppData = () => {
-    localStorage.clear();
-    setSettings({
-      notifications: true,
-      darkMode: false,
-      autoShare: false,
-      language: 'ar'
-    });
-    toast({
-      title: "تم المسح",
-      description: "تم مسح جميع بيانات التطبيق"
-    });
+  const saveSettings = async () => {
+    try {
+      // Save daily question limit
+      await supabase
+        .from('app_settings')
+        .upsert({
+          setting_key: 'daily_question_limit',
+          setting_value: dailyQuestionLimit
+        });
+
+      // Save admin password
+      if (adminPassword.trim()) {
+        await supabase
+          .from('app_settings')
+          .upsert({
+            setting_key: 'admin_password',
+            setting_value: adminPassword
+          });
+      }
+
+      toast({
+        title: "تم الحفظ",
+        description: "تم حفظ الإعدادات بنجاح"
+      });
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ في حفظ الإعدادات",
+        variant: "destructive"
+      });
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-slate-600">جاري تحميل الإعدادات...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 px-4 py-6">
-      <div className="container mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
-          <Link to="/">
-            <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
-              <ArrowRight className="w-4 h-4 ml-1" />
-              العودة للرئيسية
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <SettingsIcon className="w-6 h-6 sm:w-8 sm:h-8 text-slate-700" />
-            <h1 className="text-2xl sm:text-3xl font-bold font-amiri text-slate-800">الإعدادات</h1>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4">
+      <div className="container mx-auto max-w-4xl">
+        <div className="flex items-center gap-3 mb-8">
+          <SettingsIcon className="w-8 h-8 text-indigo-600" />
+          <h1 className="text-3xl font-bold font-amiri text-slate-800">الإعدادات</h1>
         </div>
 
-        {/* User ID Display */}
-        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+        {/* Background Settings */}
+        <Card className="mb-6 shadow-lg border border-indigo-100 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Info className="w-5 h-5 text-blue-600" />
-              معرف المستخدم
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gray-50 p-3 rounded-lg border">
-              <p className="text-sm text-gray-600 mb-1">معرف المستخدم الخاص بك:</p>
-              <p className="font-mono text-xs text-gray-800 break-all">{userIdentifier}</p>
-              <p className="text-xs text-gray-500 mt-2">
-                استخدم هذا المعرف عند التواصل مع الدعم لتفعيل الاشتراك
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Account Status */}
-        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Shield className="w-5 h-5 text-indigo-600" />
-              حالة الحساب
+              <Image className="w-6 h-6 text-indigo-600" />
+              إعدادات خلفية التطبيق
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-700">نوع الاشتراك</span>
-              <Badge className={subscription ? "bg-green-600 text-white" : "bg-gray-500 text-white"}>
-                {subscription ? "مميز" : "مجاني"}
-              </Badge>
+            <div>
+              <Label htmlFor="background-upload" className="text-slate-700 mb-2 block">
+                رفع صورة خلفية (شفافة)
+              </Label>
+              <div className="flex gap-3 items-center">
+                <Input
+                  id="background-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBackgroundUpload}
+                  disabled={isUploading}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => document.getElementById('background-upload')?.click()}
+                  disabled={isUploading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  <Upload className="w-4 h-4 ml-1" />
+                  {isUploading ? "جاري الرفع..." : "رفع"}
+                </Button>
+              </div>
             </div>
-            {subscription && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-700">انتهاء الاشتراك</span>
-                <span className="text-sm font-medium text-slate-800">
-                  {new Date(subscription.end_date).toLocaleDateString('ar-SA')}
-                </span>
+
+            {currentBackground && (
+              <div className="p-4 border border-slate-200 rounded-lg bg-slate-50">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm text-slate-600">الخلفية الحالية:</p>
+                  <Button
+                    onClick={removeBackground}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 ml-1" />
+                    حذف
+                  </Button>
+                </div>
+                <div className="w-full h-32 bg-cover bg-center rounded-lg border border-slate-300"
+                     style={{ backgroundImage: `url(${currentBackground})` }} />
               </div>
             )}
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-700">عدد المفضلة</span>
-              <Badge variant="outline" className="border-blue-500 text-blue-600">
-                {favoritesCount}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-700">الحد اليومي</span>
-              <Badge variant="outline" className={subscription ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
-                {subscription ? "غير محدود" : "10 أسئلة"}
-              </Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-700">حد المفضلة</span>
-              <Badge variant="outline" className={subscription ? "border-green-500 text-green-600" : "border-orange-500 text-orange-600"}>
-                {subscription ? "غير محدود" : "20 عنصر"}
-              </Badge>
-            </div>
           </CardContent>
         </Card>
 
-        {/* App Settings */}
-        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+        {/* Display Settings */}
+        <Card className="mb-6 shadow-lg border border-indigo-100 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Bell className="w-5 h-5 text-blue-600" />
-              إعدادات التطبيق
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-sm font-medium text-slate-800">الإشعارات</h4>
-                <p className="text-xs text-slate-600">تفعيل إشعارات التطبيق</p>
-              </div>
-              <Switch
-                checked={settings.notifications}
-                onCheckedChange={(checked) => 
-                  setSettings(prev => ({ ...prev, notifications: checked }))
-                }
-              />
-            </div>
-
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-sm font-medium text-slate-800">الوضع الليلي</h4>
-                <p className="text-xs text-slate-600">تفعيل الثيم الداكن</p>
-              </div>
-              <Switch
-                checked={settings.darkMode}
-                onCheckedChange={(checked) => 
-                  setSettings(prev => ({ ...prev, darkMode: checked }))
-                }
-              />
-            </div>
-
-            <div className="flex justify-between items-center">
-              <div>
-                <h4 className="text-sm font-medium text-slate-800">المشاركة التلقائية</h4>
-                <p className="text-xs text-slate-600">مشاركة الإجابات تلقائياً</p>
-              </div>
-              <Switch
-                checked={settings.autoShare}
-                onCheckedChange={(checked) => 
-                  setSettings(prev => ({ ...prev, autoShare: checked }))
-                }
-              />
-            </div>
-
-            <Button onClick={saveSettings} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-              <Save className="w-4 h-4 ml-2" />
-              حفظ الإعدادات
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Data Management */}
-        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Trash2 className="w-5 h-5 text-red-600" />
-              إدارة البيانات
+              {isDarkMode ? <Moon className="w-6 h-6 text-indigo-600" /> : <Sun className="w-6 h-6 text-indigo-600" />}
+              إعدادات العرض
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <h4 className="text-sm font-medium text-yellow-800 mb-2">تنبيه</h4>
-              <p className="text-xs text-yellow-700">
-                هذه العمليات لا يمكن التراجع عنها. تأكد من رغبتك في المتابعة.
-              </p>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="dark-mode" className="text-slate-700">
+                الوضع المظلم
+              </Label>
+              <Switch
+                id="dark-mode"
+                checked={isDarkMode}
+                onCheckedChange={setIsDarkMode}
+              />
             </div>
-
-            <Button
-              onClick={clearAllFavorites}
-              variant="outline"
-              className="w-full border-orange-500 text-orange-600 hover:bg-orange-50"
-              disabled={favoritesCount === 0}
-            >
-              <Trash2 className="w-4 h-4 ml-2" />
-              حذف جميع المفضلة ({favoritesCount})
-            </Button>
-
-            <Button
-              onClick={clearAppData}
-              variant="outline"
-              className="w-full border-red-500 text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="w-4 h-4 ml-2" />
-              مسح جميع بيانات التطبيق
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Developer Info */}
-        <Card className="mb-6 bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+        {/* Notification Settings */} 
+        <Card className="mb-6 shadow-lg border border-indigo-100 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Info className="w-5 h-5 text-blue-600" />
-              معلومات المطور
+              {notificationsEnabled ? <Bell className="w-6 h-6 text-indigo-600" /> : <BellOff className="w-6 h-6 text-indigo-600" />}
+              إعدادات التنبيهات
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-600">المطور</span>
-              <span className="font-medium text-slate-800">محمد عبد العظيم علي</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">الجنسية</span>
-              <span className="font-medium text-slate-800">مصري</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">العمر</span>
-              <span className="font-medium text-slate-800">19 عام</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">الشركة</span>
-              <span className="font-medium text-slate-800">Alshbh</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">واتساب</span>
-              <span className="font-medium text-slate-800">+201204486263</span>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notifications" className="text-slate-700">
+                تفعيل التنبيهات
+              </Label>
+              <Switch
+                id="notifications"
+                checked={notificationsEnabled}
+                onCheckedChange={setNotificationsEnabled}
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* App Info */}
-        <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-slate-200">
+        {/* Admin Settings */}
+        <Card className="mb-6 shadow-lg border border-red-100 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Info className="w-5 h-5 text-slate-600" />
-              معلومات التطبيق
+              <SettingsIcon className="w-6 h-6 text-red-600" />
+              إعدادات المدير
+              <Badge variant="destructive" className="text-xs">محمي</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-600">اسم التطبيق</span>
-              <span className="font-medium text-slate-800">اسأل في الدين</span>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="daily-limit" className="text-slate-700 mb-2 block">
+                عدد الأسئلة اليومية المجانية
+              </Label>
+              <Input
+                id="daily-limit"
+                type="number"
+                value={dailyQuestionLimit}
+                onChange={(e) => setDailyQuestionLimit(e.target.value)}
+                min="1"
+                max="100"
+                className="w-full"
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">الإصدار</span>
-              <span className="font-medium text-slate-800">2.0.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">آخر تحديث</span>
-              <span className="font-medium text-slate-800">ديسمبر 2024</span>
+
+            <div>
+              <Label htmlFor="admin-password" className="text-slate-700 mb-2 block">
+                كلمة مرور لوحة الإدارة
+              </Label>
+              <Input
+                id="admin-password"
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="أدخل كلمة مرور قوية"
+                className="w-full"
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Support */}
-        <div className="mt-8 text-center">
-          <p className="text-slate-600 mb-4 text-sm">
-            هل تحتاج مساعدة؟ تواصل معنا
-          </p>
-          <Button 
-            onClick={() => {
-              const phoneNumber = "201204486263";
-              const message = `السلام عليكم، أحتاج مساعدة في تطبيق اسأل في الدين\nمعرف المستخدم: ${userIdentifier}`;
-              const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-              window.open(whatsappURL, '_blank');
-            }}
-            variant="outline"
-            className="border-green-500 text-green-600 hover:bg-green-50"
+        <div className="flex justify-center">
+          <Button
+            onClick={saveSettings}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 text-lg font-bold rounded-xl shadow-lg"
           >
-            تواصل عبر واتساب
+            حفظ الإعدادات
           </Button>
         </div>
       </div>
