@@ -51,7 +51,7 @@ const Index = () => {
         .from('app_settings')
         .select('setting_value')
         .eq('setting_key', 'background_image')
-        .single();
+        .maybeSingle();
       
       if (data?.setting_value) {
         setBackgroundImage(data.setting_value);
@@ -147,7 +147,7 @@ const Index = () => {
         .from('app_settings')
         .select('setting_value')
         .eq('setting_key', 'daily_question_limit')
-        .single();
+        .maybeSingle();
       
       if (data) {
         const saved = localStorage.getItem("dailyQuestions");
@@ -329,7 +329,7 @@ const Index = () => {
         .from('stats')
         .select('*')
         .eq('date', today)
-        .single();
+        .maybeSingle();
 
       if (existingStats) {
         await supabase
@@ -380,7 +380,7 @@ const Index = () => {
         .eq('user_ip', userIdentifier)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (questionData) {
         await supabase
