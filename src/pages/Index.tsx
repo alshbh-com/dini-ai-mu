@@ -10,6 +10,11 @@ import PrayerReminder from "@/components/PrayerReminder";
 import DuaaHeader from "@/components/DuaaHeader";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import AdminPanel from "@/components/AdminPanel";
+import AnswerFeedback from "@/components/AnswerFeedback";
+import ResponseStyleSelector, { ResponseStyle } from "@/components/ResponseStyleSelector";
+import VoiceSearch from "@/components/VoiceSearch";
+import DailyQuiz from "@/components/DailyQuiz";
+import SituationalGuidance from "@/components/SituationalGuidance";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserIdentifier } from "@/utils/userIdentifier";
 import FreeTrialManager from "@/components/FreeTrialManager";
@@ -26,6 +31,9 @@ const Index = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
   const [userIdentifier, setUserIdentifier] = useState("");
+  const [responseStyle, setResponseStyle] = useState<ResponseStyle>('detailed');
+  const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
+  const [backgroundImage, setBackgroundImage] = useState<string>('');
   const { toast } = useToast();
 
   // Load daily questions limit and subscription status
@@ -34,7 +42,55 @@ const Index = () => {
     setUserIdentifier(identifier);
     loadDailyLimit();
     checkSubscriptionStatus(identifier);
+    loadBackgroundImage();
   }, []);
+
+  const loadBackgroundImage = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'background_image')
+        .single();
+      
+      if (data?.setting_value) {
+        setBackgroundImage(data.setting_value);
+      }
+    } catch (error) {
+      console.error('Error loading background image:', error);
+    }
+  };
+
+  const detectLanguage = (text: string): string => {
+    const arabicPattern = /[\u0600-\u06FF]/;
+    const englishPattern = /[a-zA-Z]/;
+    
+    if (arabicPattern.test(text)) {
+      return 'ar';
+    } else if (englishPattern.test(text)) {
+      return 'en';
+    }
+    return 'ar'; // default to Arabic
+  };
+
+  const getStylePrompt = (style: ResponseStyle, language: string): string => {
+    const prompts = {
+      ar: {
+        brief: "أجب بإيجاز وتركيز، لا تتجاوز 100 كلمة",
+        detailed: "قدم إجابة مفصلة وشاملة مع الأدلة والمصادر",
+        scholarly: "اذكر آراء العلماء والمذاهب المختلفة مع التفصيل",
+        beginner: "اشرح بطريقة مبسطة جداً مناسبة للأطفال والمبتدئين"
+      },
+      en: {
+        brief: "Answer briefly and concisely, don't exceed 100 words",
+        detailed: "Provide a detailed and comprehensive answer with evidence and sources",
+        scholarly: "Mention the opinions of scholars and different schools of thought with details",
+        beginner: "Explain in a very simple way suitable for children and beginners"
+      }
+    };
+    
+    return prompts[language as keyof typeof prompts]?.[style] || prompts.ar[style];
+  };
 
   const checkSubscriptionStatus = async (userId: string) => {
     try {
@@ -55,7 +111,6 @@ const Index = () => {
         setSubscription(data);
         
         if (data) {
-          // تحديد نوع الاشتراك والأسئلة المتاحة
           if (data.subscription_type === 'free_trial') {
             const endDate = new Date(data.end_date);
             const now = new Date();
@@ -64,15 +119,14 @@ const Index = () => {
             console.log(`التجربة المجانية - أيام متبقية: ${daysLeft}`);
             
             if (daysLeft > 0) {
-              setDailyQuestions(999); // أسئلة غير محدودة للتجربة المجانية
+              setDailyQuestions(999);
             } else {
-              // انتهت فترة التجربة المجانية
               setSubscription(null);
               setDailyQuestions(10);
               console.log("انتهت فترة التجربة المجانية - العودة للوضع المجاني");
             }
           } else {
-            setDailyQuestions(999); // أسئلة غير محدودة للمشتركين المدفوعين
+            setDailyQuestions(999);
             console.log("اشتراك مدفوع نشط");
           }
         } else {
@@ -118,8 +172,10 @@ const Index = () => {
     }
   };
 
-  const askQuestion = async () => {
-    if (!question.trim()) {
+  const askQuestion = async (questionText?: string) => {
+    const finalQuestion = questionText || question;
+    
+    if (!finalQuestion.trim()) {
       toast({
         title: "تنبيه",
         description: "يرجى كتابة السؤال أولاً",
@@ -142,8 +198,11 @@ const Index = () => {
     setSource("");
 
     try {
+      const language = detectLanguage(finalQuestion);
+      const stylePrompt = getStylePrompt(responseStyle, language);
+      
       let promptText = "";
-      const questionLower = question.toLowerCase();
+      const questionLower = finalQuestion.toLowerCase();
       
       if (questionLower.includes("مطور") || questionLower.includes("صانع") || questionLower.includes("من صنع") || questionLower.includes("معلومات التطبيق")) {
         promptText = `هذا التطبيق تم تطويره من قبل:
@@ -155,27 +214,28 @@ const Index = () => {
         
         التطبيق يهدف لنشر العلم الشرعي وخدمة المسلمين بتقديم إجابات من القرآن والسنة.
         
-        أما بالنسبة لسؤالك: ${question}`;
+        أما بالنسبة لسؤالك: ${finalQuestion}`;
       } else {
-        promptText = subscription 
-          ? `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. قدم إجابة مفصلة وشاملة مع ذكر المصادر والأدلة.
+        const basePrompt = language === 'en' 
+          ? `You are a specialized Islamic religious assistant. Answer the following question based on the Holy Quran and authentic Sunnah. ${stylePrompt}
+          
+          Important rules:
+          - Do not issue fatwas on matters of blood, divorce, or takfir
+          - If you are not sure of the answer, advise referring to scholars
+          - Mention the source with verse number or hadith if possible
+          - Respond in English since the question was asked in English
+          
+          Question: ${finalQuestion}`
+          : `أنت مساعد ديني إسلامي متخصص. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة. ${stylePrompt}
 
           قواعد مهمة:
           - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
           - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
           - اذكر المصدر مع رقم الآية أو الحديث إن أمكن
-          - قدم الإجابة بتفصيل مناسب مع الشرح
           
-          السؤال: ${question}`
-          : `أنت مساعد ديني إسلامي. أجب على السؤال التالي بناءً على القرآن الكريم والسنة النبوية الصحيحة فقط. 
-          
-          قواعد مهمة:
-          - لا تفتي في مسائل الدماء أو الطلاق أو التكفير
-          - إذا لم تكن متأكداً من الإجابة، انصح بالرجوع لأهل العلم
-          - اذكر المصدر إذا توفر (آية قرآنية أو حديث صحيح)
-          - كن مختصراً ومفيداً
-          
-          السؤال: ${question}`;
+          السؤال: ${finalQuestion}`;
+
+        promptText = subscription ? basePrompt : basePrompt.replace('مفصلة وشاملة مع الشرح', 'مختصرة ومفيدة');
       }
 
       const response = await fetch(
@@ -209,15 +269,22 @@ const Index = () => {
           setSource(sourceText);
         }
 
-        // Save to database
-        await supabase
+        // Save to database and get question ID
+        const { data: savedQuestion } = await supabase
           .from('questions')
           .insert({
-            question,
+            question: finalQuestion,
             answer: responseText,
             source: sourceText,
-            user_ip: userIdentifier
-          });
+            user_ip: userIdentifier,
+            response_style: responseStyle
+          })
+          .select('id')
+          .single();
+
+        if (savedQuestion) {
+          setCurrentQuestionId(savedQuestion.id);
+        }
 
         if (!subscription) {
           const newCount = dailyQuestions - 1;
@@ -237,7 +304,9 @@ const Index = () => {
           description: remainingMessage
         });
 
-        setQuestion("");
+        if (!questionText) {
+          setQuestion("");
+        }
       } else {
         throw new Error("No response from AI");
       }
@@ -394,6 +463,18 @@ const Index = () => {
     }
   };
 
+  const handleVoiceTranscription = (text: string) => {
+    setQuestion(text);
+    toast({
+      title: "تم التعرف على الصوت",
+      description: "تم تحويل صوتك إلى نص - يمكنك المراجعة والإرسال"
+    });
+  };
+
+  const handleAnswerFeedback = (helpful: boolean, comment?: string) => {
+    console.log('Answer feedback:', { helpful, comment, questionId: currentQuestionId });
+  };
+
   if (showAdminPanel) {
     return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
   }
@@ -446,325 +527,362 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <FreeTrialManager />
-      <DuaaHeader />
-      
-      {subscription && <PrayerReminder />}
-
-      <div className="container mx-auto px-3 py-4">
+    <div 
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50"
+      style={{
+        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {backgroundImage && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm"></div>}
+      <div className="relative z-10">
+        <FreeTrialManager />
+        <DuaaHeader />
         
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <BookOpen className="w-8 h-8 text-indigo-600" />
-              <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
-            </div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">اسأل في الدين</h1>
-              <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
-              <Badge className={`text-xs mt-1 ${getSubscriptionBadgeColor()}`}>
-                <Crown className="w-3 h-3 ml-1" />
-                {getSubscriptionStatus()}
-              </Badge>
-            </div>
-          </div>
-          
-          <Button
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-            variant="outline"
-            size="sm"
-            className="md:hidden border-slate-400 text-slate-600"
-          >
-            {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-          </Button>
+        {subscription && <PrayerReminder />}
 
-          <div className="hidden md:flex gap-2">
+        <div className="container mx-auto px-3 py-4">
+          
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <BookOpen className="w-8 h-8 text-indigo-600" />
+                <Sparkles className="w-3 h-3 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
+              </div>
+              <div>
+                <h1 className="text-xl md:text-2xl font-bold font-amiri text-slate-800">اسأل في الدين</h1>
+                <p className="text-indigo-600 text-xs md:text-sm">دليلك الموثوق للمعرفة الإسلامية</p>
+                <Badge className={`text-xs mt-1 ${getSubscriptionBadgeColor()}`}>
+                  <Crown className="w-3 h-3 ml-1" />
+                  {getSubscriptionStatus()}
+                </Badge>
+              </div>
+            </div>
+            
             <Button
-              onClick={() => setShowAdminPanel(true)}
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
               variant="outline"
               size="sm"
-              className="border-red-400 text-red-600 hover:bg-red-50"
+              className="md:hidden border-slate-400 text-slate-600"
             >
-              <Shield className="w-4 h-4 ml-1" />
-              الإدارة
+              {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </Button>
-            <Link to="/favorites">
-              <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
-                <Heart className="w-4 h-4 ml-1" />
-                المفضلة
-              </Button>
-            </Link>
-            <Link to="/subscription">
-              <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50">
-                <Crown className="w-4 h-4 ml-1" />
-                الاشتراك
-              </Button>
-            </Link>
-            <Link to="/settings">
-              <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50">
-                <Settings className="w-4 h-4 ml-1" />
-                الإعدادات
-              </Button>
-            </Link>
-          </div>
-        </div>
 
-        {showMobileMenu && (
-          <div className="md:hidden mb-6 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-lg">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="hidden md:flex gap-2">
               <Button
-                onClick={() => {
-                  setShowAdminPanel(true);
-                  setShowMobileMenu(false);
-                }}
+                onClick={() => setShowAdminPanel(true)}
                 variant="outline"
                 size="sm"
-                className="border-red-400 text-red-600 hover:bg-red-50 w-full"
+                className="border-red-400 text-red-600 hover:bg-red-50"
               >
                 <Shield className="w-4 h-4 ml-1" />
                 الإدارة
               </Button>
               <Link to="/favorites">
-                <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50 w-full">
+                <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50">
                   <Heart className="w-4 h-4 ml-1" />
                   المفضلة
                 </Button>
               </Link>
               <Link to="/subscription">
-                <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50 w-full">
+                <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50">
                   <Crown className="w-4 h-4 ml-1" />
                   الاشتراك
                 </Button>
               </Link>
               <Link to="/settings">
-                <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50 w-full">
+                <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50">
                   <Settings className="w-4 h-4 ml-1" />
                   الإعدادات
                 </Button>
               </Link>
             </div>
           </div>
-        )}
 
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/70 backdrop-blur-sm rounded-full text-xs text-slate-600 border border-slate-200">
-            <Users className="w-3 h-3" />
-            معرف المستخدم: {userIdentifier.substring(0, 20)}...
-          </div>
-        </div>
-
-        <div className="text-center mb-6">
-          <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${getSubscriptionBadgeColor()}`}>
-            {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
-            {subscription ? 
-              (subscription.subscription_type === 'free_trial' ? 
-                `أسئلة غير محدودة - ${getSubscriptionStatus()}` : 
-                "أسئلة غير محدودة - مشترك مميز"
-              ) : 
-              `الأسئلة المتبقية اليوم: ${dailyQuestions}`
-            }
-            <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
-          </div>
-        </div>
-
-        
-        <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-4 md:p-8">
-            <div className="text-center mb-6">
-              <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
-                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
-                <h2 className="text-lg md:text-xl font-amiri text-slate-800">
-                  اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
-                </h2>
-                <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
-              </div>
-              <p className="text-slate-600 text-sm md:text-base">
-                {subscription 
-                  ? "احصل على إجابات مفصلة وشاملة مع المصادر - للمشتركين المميزين"
-                  : "احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة"
-                }
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="relative">
-                <Textarea
-                  placeholder="اكتب سؤالك الديني هنا..."
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  className="min-h-[120px] md:min-h-[140px] text-base md:text-lg border-2 border-indigo-200 focus:border-indigo-400 bg-white/50 backdrop-blur-sm text-slate-800 placeholder:text-slate-500 rounded-xl"
-                  disabled={isLoading}
-                />
-                <div className="absolute top-3 right-3">
-                  <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          {showMobileMenu && (
+            <div className="md:hidden mb-6 p-4 bg-white/90 backdrop-blur-sm rounded-xl border border-slate-200 shadow-lg">
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={askQuestion}
-                  disabled={isLoading || (!subscription && dailyQuestions <= 0)}
-                  className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
-                >
-                  {isLoading ? (
-                    <LoadingSpinner />
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 md:w-5 md:h-5 ml-2" />
-                      اسأل الآن
-                    </>
-                  )}
-                </Button>
-
-                <Button
+                  onClick={() => {
+                    setShowAdminPanel(true);
+                    setShowMobileMenu(false);
+                  }}
                   variant="outline"
-                  className="border-2 border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-3 md:px-6 md:py-4 text-base md:text-lg rounded-xl transition-all duration-300 w-full sm:w-auto"
-                  disabled={isRecording}
+                  size="sm"
+                  className="border-red-400 text-red-600 hover:bg-red-50 w-full"
                 >
-                  <Mic className="w-4 h-4 md:w-5 md:h-5 ml-2" />
-                  تسجيل صوتي
+                  <Shield className="w-4 h-4 ml-1" />
+                  الإدارة
                 </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {answer && (
-          <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
-            <CardContent className="p-4 md:p-8">
-              <div className="mb-4">
-                <h3 className="text-lg md:text-xl font-semibold text-slate-800 mb-3 flex items-center">
-                  <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center ml-2">
-                    <Star className="w-3 h-3 md:w-5 md:h-5 text-white" />
-                  </div>
-                  الإجابة:
-                  {subscription && (
-                    <Badge className="bg-purple-600 text-white text-xs mr-2">
-                      <Crown className="w-3 h-3 ml-1" />
-                      مفصلة للمشتركين
-                    </Badge>
-                  )}
-                </h3>
-                <div className="bg-white/60 backdrop-blur-sm p-4 md:p-6 rounded-xl text-sm md:text-base leading-relaxed text-slate-800 border border-green-200">
-                  {answer}
-                </div>
-              </div>
-
-              {source && (
-                <div className="mb-4 p-3 md:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
-                  <p className="text-sm md:text-base text-indigo-700 font-medium flex items-center">
-                    <BookOpen className="w-4 h-4 md:w-5 md:h-5 ml-2" />
-                    {source}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  onClick={saveToFavorites}
-                  variant="outline"
-                  className="border-2 border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
-                >
-                  <Bookmark className="w-4 h-4 ml-2" />
-                  حفظ في المفضلة
-                </Button>
-
-                <Button
-                  onClick={shareAnswer}
-                  variant="outline"
-                  className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
-                >
-                  <Send className="w-4 h-4 ml-2" />
-                  مشاركة الإجابة
-                </Button>
-
-                {subscription && (
-                  <Button
-                    onClick={playAnswerAudio}
-                    variant="outline"
-                    className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
-                  >
-                    <Volume2 className="w-4 h-4 ml-2" />
-                    تشغيل صوتي
+                <Link to="/favorites">
+                  <Button variant="outline" size="sm" className="border-indigo-400 text-indigo-600 hover:bg-indigo-50 w-full">
+                    <Heart className="w-4 h-4 ml-1" />
+                    المفضلة
                   </Button>
-                )}
+                </Link>
+                <Link to="/subscription">
+                  <Button variant="outline" size="sm" className="border-purple-400 text-purple-600 hover:bg-purple-50 w-full">
+                    <Crown className="w-4 h-4 ml-1" />
+                    الاشتراك
+                  </Button>
+                </Link>
+                <Link to="/settings">
+                  <Button variant="outline" size="sm" className="border-slate-400 text-slate-600 hover:bg-slate-50 w-full">
+                    <Settings className="w-4 h-4 ml-1" />
+                    الإعدادات
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/70 backdrop-blur-sm rounded-full text-xs text-slate-600 border border-slate-200">
+              <Users className="w-3 h-3" />
+              معرف المستخدم: {userIdentifier.substring(0, 20)}...
+            </div>
+          </div>
+
+          <div className="text-center mb-6">
+            <div className={`inline-flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base shadow-lg ${getSubscriptionBadgeColor()}`}>
+              {subscription ? <Crown className="w-4 h-4 md:w-5 md:h-5" /> : <Moon className="w-4 h-4 md:w-5 md:h-5" />}
+              {subscription ? 
+                (subscription.subscription_type === 'free_trial' ? 
+                  `أسئلة غير محدودة - ${getSubscriptionStatus()}` : 
+                  "أسئلة غير محدودة - مشترك مميز"
+                ) : 
+                `الأسئلة المتبقية اليوم: ${dailyQuestions}`
+              }
+              <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
+            </div>
+          </div>
+
+          <DailyQuiz />
+          
+          <SituationalGuidance 
+            onSituationSubmit={(situation) => askQuestion(`موقف يحتاج إرشاد شرعي: ${situation}`)}
+            isLoading={isLoading}
+          />
+          
+          <ResponseStyleSelector 
+            selectedStyle={responseStyle}
+            onStyleChange={setResponseStyle}
+          />
+          
+          <VoiceSearch 
+            onTranscription={handleVoiceTranscription}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+          />
+          
+          <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-indigo-100 bg-white/80 backdrop-blur-sm">
+            <CardContent className="p-4 md:p-8">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+                  <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
+                  <h2 className="text-lg md:text-xl font-amiri text-slate-800">
+                    اسأل ما شئت، نجيبك بإذن الله من الكتاب والسنة
+                  </h2>
+                  <Star className="w-5 h-5 md:w-6 md:h-6 text-indigo-500 animate-pulse" />
+                </div>
+                <p className="text-slate-600 text-sm md:text-base">
+                  {subscription 
+                    ? "احصل على إجابات مفصلة وشاملة مع المصادر - للمشتركين المميزين"
+                    : "احصل على إجابات موثوقة من القرآن الكريم والسنة النبوية الصحيحة"
+                  }
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="relative">
+                  <Textarea
+                    placeholder="اكتب سؤالك الديني هنا..."
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    className="min-h-[120px] md:min-h-[140px] text-base md:text-lg border-2 border-indigo-200 focus:border-indigo-400 bg-white/50 backdrop-blur-sm text-slate-800 placeholder:text-slate-500 rounded-xl"
+                    disabled={isLoading}
+                  />
+                  <div className="absolute top-3 right-3">
+                    <BookOpen className="w-5 h-5 md:w-6 md:h-6 text-indigo-400" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button
+                    onClick={() => askQuestion()}
+                    disabled={isLoading || (!subscription && dailyQuestions <= 0)}
+                    className="bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white px-6 py-3 md:px-8 md:py-4 text-base md:text-lg font-bold rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 w-full sm:w-auto"
+                  >
+                    {isLoading ? (
+                      <LoadingSpinner />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                        اسأل الآن
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="border-2 border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-3 md:px-6 md:py-4 text-base md:text-lg rounded-xl transition-all duration-300 w-full sm:w-auto"
+                    disabled={isRecording}
+                  >
+                    <Mic className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                    تسجيل صوتي
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
-        )}
 
-        
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <Card className="bg-white/70 backdrop-blur-sm border border-blue-200">
-            <CardContent className="p-4 text-center">
-              <Calendar className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-              <h3 className="font-semibold text-slate-800 mb-1">10 أسئلة يومياً</h3>
-              <p className="text-xs text-slate-600">مجاناً للجميع</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white/70 backdrop-blur-sm border border-green-200">
-            <CardContent className="p-4 text-center">
-              <Bookmark className="w-8 h-8 mx-auto mb-2 text-green-600" />
-              <h3 className="font-semibold text-slate-800 mb-1">20 مفضلة</h3>
-              <p className="text-xs text-slate-600">احفظ إجاباتك المهمة</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white/70 backdrop-blur-sm border border-purple-200">
-            <CardContent className="p-4 text-center">
-              <Award className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-              <h3 className="font-semibold text-slate-800 mb-1">مصادر موثوقة</h3>
-              <p className="text-xs text-slate-600">من القرآن والسنة</p>
-            </CardContent>
-          </Card>
-        </div>
+          {answer && (
+            <>
+              <Card className="max-w-4xl mx-auto mb-6 shadow-xl border border-green-100 bg-gradient-to-br from-green-50/80 to-emerald-50/80 backdrop-blur-sm animate-fade-in">
+                <CardContent className="p-4 md:p-8">
+                  <div className="mb-4">
+                    <h3 className="text-lg md:text-xl font-semibold text-slate-800 mb-3 flex items-center">
+                      <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center ml-2">
+                        <Star className="w-3 h-3 md:w-5 md:h-5 text-white" />
+                      </div>
+                      الإجابة:
+                      {subscription && (
+                        <Badge className="bg-purple-600 text-white text-xs mr-2">
+                          <Crown className="w-3 h-3 ml-1" />
+                          مفصلة للمشتركين
+                        </Badge>
+                      )}
+                    </h3>
+                    <div className="bg-white/60 backdrop-blur-sm p-4 md:p-6 rounded-xl text-sm md:text-base leading-relaxed text-slate-800 border border-green-200">
+                      {answer}
+                    </div>
+                  </div>
 
-        {subscription && (
-          <Card className="max-w-4xl mx-auto mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-center mb-4 text-purple-800 flex items-center justify-center gap-2">
-                <Trophy className="w-6 h-6" />
-                المميزات الحصرية للمشتركين
-              </h3>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="text-center">
-                  <Volume2 className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium">دعم صوتي</p>
-                </div>
-                <div className="text-center">
-                  <Calendar className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium">تذكير الصلاة</p>
-                </div>
-                <div className="text-center">
-                  <Trophy className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium">مسابقات شهرية</p>
-                </div>
-                <div className="text-center">
-                  <Star className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-                  <p className="text-sm font-medium">إجابات مفصلة</p>
-                </div>
+                  {source && (
+                    <div className="mb-4 p-3 md:p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200">
+                      <p className="text-sm md:text-base text-indigo-700 font-medium flex items-center">
+                        <BookOpen className="w-4 h-4 md:w-5 md:h-5 ml-2" />
+                        {source}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button
+                      onClick={saveToFavorites}
+                      variant="outline"
+                      className="border-2 border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                    >
+                      <Bookmark className="w-4 h-4 ml-2" />
+                      حفظ في المفضلة
+                    </Button>
+
+                    <Button
+                      onClick={shareAnswer}
+                      variant="outline"
+                      className="border-2 border-blue-300 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                    >
+                      <Send className="w-4 h-4 ml-2" />
+                      مشاركة الإجابة
+                    </Button>
+
+                    {subscription && (
+                      <Button
+                        onClick={playAnswerAudio}
+                        variant="outline"
+                        className="border-2 border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl transition-all duration-300 w-full sm:w-auto"
+                      >
+                        <Volume2 className="w-4 h-4 ml-2" />
+                        تشغيل صوتي
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="max-w-4xl mx-auto">
+                <AnswerFeedback 
+                  questionId={currentQuestionId || undefined}
+                  answer={answer}
+                  onFeedback={handleAnswerFeedback}
+                />
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </>
+          )}
+          
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <Card className="bg-white/70 backdrop-blur-sm border border-blue-200">
+              <CardContent className="p-4 text-center">
+                <Calendar className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                <h3 className="font-semibold text-slate-800 mb-1">10 أسئلة يومياً</h3>
+                <p className="text-xs text-slate-600">مجاناً للجميع</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-white/70 backdrop-blur-sm border border-green-200">
+              <CardContent className="p-4 text-center">
+                <Bookmark className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                <h3 className="font-semibold text-slate-800 mb-1">20 مفضلة</h3>
+                <p className="text-xs text-slate-600">احفظ إجاباتك المهمة</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-white/70 backdrop-blur-sm border border-purple-200">
+              <CardContent className="p-4 text-center">
+                <Award className="w-8 h-8 mx-auto mb-2 text-purple-600" />
+                <h3 className="font-semibold text-slate-800 mb-1">مصادر موثوقة</h3>
+                <p className="text-xs text-slate-600">من القرآن والسنة</p>
+              </CardContent>
+            </Card>
+          </div>
 
-        <div className="text-center mt-8 text-slate-600">
-          <div className="max-w-2xl mx-auto px-4">
-            <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">
-              "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
-            </p>
-            <p className="text-sm md:text-base leading-relaxed mb-2">
-              الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
-            </p>
-            <p className="text-xs text-slate-500 mb-4">
-              تطوير: محمد عبد العظيم علي - مصر | شركة: Alshbh | واتساب: +201204486263
-            </p>
-            <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
-              <Star className="w-4 h-4" />
-              <span className="text-sm">بارك الله فيك</span>
-              <Star className="w-4 h-4" />
+          {subscription && (
+            <Card className="max-w-4xl mx-auto mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-center mb-4 text-purple-800 flex items-center justify-center gap-2">
+                  <Trophy className="w-6 h-6" />
+                  المميزات الحصرية للمشتركين
+                </h3>
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="text-center">
+                    <Volume2 className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                    <p className="text-sm font-medium">دعم صوتي</p>
+                  </div>
+                  <div className="text-center">
+                    <Calendar className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                    <p className="text-sm font-medium">تذكير الصلاة</p>
+                  </div>
+                  <div className="text-center">
+                    <Trophy className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                    <p className="text-sm font-medium">مسابقات شهرية</p>
+                  </div>
+                  <div className="text-center">
+                    <Star className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                    <p className="text-sm font-medium">إجابات مفصلة</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="text-center mt-8 text-slate-600">
+            <div className="max-w-2xl mx-auto px-4">
+              <p className="font-amiri text-lg md:text-xl mb-3 text-indigo-700">
+                "وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا"
+              </p>
+              <p className="text-sm md:text-base leading-relaxed mb-2">
+                الإجابات مبنية على المصادر الإسلامية المعتمدة. للمسائل المعقدة، يُرجى الرجوع لأهل العلم.
+              </p>
+              <p className="text-xs text-slate-500 mb-4">
+                تطوير: محمد عبد العظيم علي - مصر | شركة: Alshbh | واتساب: +201204486263
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-3 text-indigo-500">
+                <Star className="w-4 h-4" />
+                <span className="text-sm">بارك الله فيك</span>
+                <Star className="w-4 h-4" />
+              </div>
             </div>
           </div>
         </div>
