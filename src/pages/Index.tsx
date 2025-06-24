@@ -13,7 +13,7 @@ import PrayerReminder from "@/components/PrayerReminder";
 import DuaaHeader from "@/components/DuaaHeader";
 import DailyQuiz from "@/components/DailyQuiz";
 import VoiceSearch from "@/components/VoiceSearch";
-import ResponseStyleSelector from "@/components/ResponseStyleSelector";
+import ResponseStyleSelector, { ResponseStyle } from "@/components/ResponseStyleSelector";
 import SituationalGuidance from "@/components/SituationalGuidance";
 import AnswerFeedback from "@/components/AnswerFeedback";
 import AdminPanel from "@/components/AdminPanel";
@@ -36,6 +36,8 @@ const Index = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [backgroundImage, setBackgroundImage] = useState("");
+  const [responseStyle, setResponseStyle] = useState<ResponseStyle>('detailed');
+  const [isRecording, setIsRecording] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -100,6 +102,24 @@ const Index = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSituationSubmit = async (situation: string) => {
+    setQuestion(situation);
+    // Trigger the same submit logic
+    const event = new Event('submit') as any;
+    handleSubmit(event);
+  };
+
+  const handleFeedback = (helpful: boolean, comment?: string) => {
+    console.log('Feedback received:', { helpful, comment });
+  };
+
+  const handleActivationSuccess = () => {
+    toast({
+      title: "تم التفعيل",
+      description: "تم تفعيل الاشتراك بنجاح"
+    });
   };
 
   const backgroundStyle = backgroundImage ? {
@@ -177,12 +197,22 @@ const Index = () => {
                   className="flex-1 min-h-[100px] text-lg border-blue-200 focus:border-blue-500 font-cairo resize-none"
                   disabled={isLoading}
                 />
-                <VoiceSearch onTranscript={setQuestion} />
+                <VoiceSearch 
+                  onTranscription={setQuestion}
+                  isRecording={isRecording}
+                  setIsRecording={setIsRecording}
+                />
               </div>
               
               <div className="flex gap-3">
-                <ResponseStyleSelector />
-                <SituationalGuidance />
+                <ResponseStyleSelector 
+                  selectedStyle={responseStyle}
+                  onStyleChange={setResponseStyle}
+                />
+                <SituationalGuidance 
+                  onSituationSubmit={handleSituationSubmit}
+                  isLoading={isLoading}
+                />
               </div>
 
               <Button
@@ -227,7 +257,8 @@ const Index = () => {
               {currentQuestion && (
                 <AnswerFeedback 
                   questionId={currentQuestion.id}
-                  answerText={answer}
+                  answer={answer}
+                  onFeedback={handleFeedback}
                 />
               )}
             </CardContent>
@@ -241,7 +272,7 @@ const Index = () => {
         <FreeTrialManager />
 
         {/* Subscription Activation */}
-        <SubscriptionActivation />
+        <SubscriptionActivation onActivationSuccess={handleActivationSuccess} />
 
         {/* Premium Features */}
         <PremiumFeaturesList />
