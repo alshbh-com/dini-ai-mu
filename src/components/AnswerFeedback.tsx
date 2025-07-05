@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, Flag } from "lucide-react";
@@ -192,7 +191,7 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
         مفيد
       </Button>
       
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialomOpen}>
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
         <DialogTrigger asChild>
           <Button
             disabled={isSubmitting || hasVoted}
