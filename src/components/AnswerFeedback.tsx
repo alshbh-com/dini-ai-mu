@@ -192,7 +192,7 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
         مفيد
       </Button>
       
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialomOpen}>
         <DialogTrigger asChild>
           <Button
             disabled={isSubmitting || hasVoted}
@@ -204,7 +204,7 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
             إبلاغ عن محتوى مسيء
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] bg-white">
           <DialogHeader>
             <DialogTitle className="text-right">إبلاغ عن محتوى مسيء</DialogTitle>
           </DialogHeader>
@@ -220,7 +220,7 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
                     <FormControl>
                       <Textarea
                         placeholder="يرجى توضيح السبب في الإبلاغ عن هذا المحتوى..."
-                        className="resize-none text-right"
+                        className="resize-none text-right bg-white"
                         rows={4}
                         {...field}
                       />
@@ -234,6 +234,7 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
                   type="button"
                   variant="outline"
                   onClick={() => setReportDialogOpen(false)}
+                  className="bg-white hover:bg-gray-50"
                 >
                   إلغاء
                 </Button>
