@@ -42,11 +42,16 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
       // تحديث عداد التقييمات في جدول الأسئلة
       if (questionId) {
         const updateField = type === 'helpful' ? 'helpful_count' : 'report_count';
-        await supabase.rpc('increment', {
-          table_name: 'questions',
-          row_id: questionId,
-          column_name: updateField
-        });
+        const { error: updateError } = await supabase
+          .from('questions')
+          .update({
+            [updateField]: supabase.raw(`${updateField} + 1`)
+          })
+          .eq('id', questionId);
+
+        if (updateError) {
+          console.error('Error updating question count:', updateError);
+        }
       }
 
       setHasVoted(true);
