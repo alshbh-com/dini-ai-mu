@@ -41,16 +41,27 @@ const AnswerFeedback = ({ questionId, answer }: AnswerFeedbackProps) => {
 
       // تحديث عداد التقييمات في جدول الأسئلة
       if (questionId) {
-        const updateField = type === 'helpful' ? 'helpful_count' : 'report_count';
-        const { error: updateError } = await supabase
+        // First get the current count
+        const { data: currentQuestion } = await supabase
           .from('questions')
-          .update({
-            [updateField]: supabase.raw(`${updateField} + 1`)
-          })
-          .eq('id', questionId);
+          .select('helpful_count, report_count')
+          .eq('id', questionId)
+          .single();
 
-        if (updateError) {
-          console.error('Error updating question count:', updateError);
+        if (currentQuestion) {
+          const updateField = type === 'helpful' ? 'helpful_count' : 'report_count';
+          const currentCount = currentQuestion[updateField] || 0;
+          
+          const { error: updateError } = await supabase
+            .from('questions')
+            .update({
+              [updateField]: currentCount + 1
+            })
+            .eq('id', questionId);
+
+          if (updateError) {
+            console.error('Error updating question count:', updateError);
+          }
         }
       }
 
