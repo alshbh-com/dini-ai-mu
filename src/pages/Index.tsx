@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import PrayerReminder from "@/components/PrayerReminder";
 import DuaaHeader from "@/components/DuaaHeader";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import AdminPanel from "@/components/AdminPanel";
+import AnswerFeedback from "@/components/AnswerFeedback";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserIdentifier } from "@/utils/userIdentifier";
 import FreeTrialManager from "@/components/FreeTrialManager";
@@ -26,6 +28,7 @@ const Index = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
   const [userIdentifier, setUserIdentifier] = useState("");
+  const [currentQuestionId, setCurrentQuestionId] = useState<string>("");
   const { toast } = useToast();
 
   // Load daily questions limit and subscription status
@@ -140,6 +143,7 @@ const Index = () => {
     setIsLoading(true);
     setAnswer("");
     setSource("");
+    setCurrentQuestionId("");
 
     try {
       let promptText = "";
@@ -209,15 +213,21 @@ const Index = () => {
           setSource(sourceText);
         }
 
-        // Save to database
-        await supabase
+        // Save to database and get the question ID
+        const { data: questionData, error } = await supabase
           .from('questions')
           .insert({
             question,
             answer: responseText,
             source: sourceText,
             user_ip: userIdentifier
-          });
+          })
+          .select('id')
+          .single();
+
+        if (questionData) {
+          setCurrentQuestionId(questionData.id);
+        }
 
         if (!subscription) {
           const newCount = dailyQuestions - 1;
@@ -660,7 +670,13 @@ const Index = () => {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              {/* أزرار التقييم والإبلاغ */}
+              <AnswerFeedback 
+                questionId={currentQuestionId}
+                answer={answer}
+              />
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
                 <Button
                   onClick={saveToFavorites}
                   variant="outline"

@@ -68,6 +68,41 @@ export type Database = {
         }
         Relationships: []
       }
+      content_reports: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          question_id: string | null
+          report_type: string
+          user_ip: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          question_id?: string | null
+          report_type: string
+          user_ip: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          question_id?: string | null
+          report_type?: string
+          user_ip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_reports_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_quiz_answers: {
         Row: {
           created_at: string
@@ -164,27 +199,33 @@ export type Database = {
         Row: {
           answer: string
           created_at: string
+          helpful_count: number | null
           id: string
           is_favorite: boolean | null
           question: string
+          report_count: number | null
           source: string | null
           user_ip: string | null
         }
         Insert: {
           answer: string
           created_at?: string
+          helpful_count?: number | null
           id?: string
           is_favorite?: boolean | null
           question: string
+          report_count?: number | null
           source?: string | null
           user_ip?: string | null
         }
         Update: {
           answer?: string
           created_at?: string
+          helpful_count?: number | null
           id?: string
           is_favorite?: boolean | null
           question?: string
+          report_count?: number | null
           source?: string | null
           user_ip?: string | null
         }
